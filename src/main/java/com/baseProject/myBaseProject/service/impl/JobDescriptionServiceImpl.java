@@ -80,6 +80,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
                 .uploadedAt(clock.instant())
                 .build());
         submit(document);
+
         return new UploadResult(mapper.toResponse(document, null), false);
     }
 
@@ -109,6 +110,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
                 .uploadedAt(clock.instant())
                 .build());
         submit(document);
+
         return new UploadResult(mapper.toResponse(document, null), false);
     }
 
@@ -127,6 +129,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     public JobDescriptionResponse get(Long ownerId, Long id) {
         JobDescriptionDocument document = requireActive(ownerId, id);
         InterviewTemplate template = templates.findBySourceJobDescriptionId(id).orElse(null);
+
         return mapper.toResponse(document, template);
     }
 
@@ -136,6 +139,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
         JobDescriptionDocument document = requireActive(ownerId, id);
         var result = analysisResults.findByJobDescriptionId(document.getId())
                 .orElseThrow(() -> new DomainException(ErrorCode.JD_ANALYSIS_NOT_READY));
+
         return new JobDescriptionAnalysisResponse(
                 document.getId(), result.getExtractedText(),
                 analysisJsonMapper.fromJson(result.getAnalysisJson()), result.getSchemaVersion(),
@@ -153,6 +157,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
         }
         String url = storage.generatePresignedUrl(
                 document.getStorageKey(), FileStorageSupport.PRESIGNED_URL_TTL);
+
         return new JobDescriptionFileUrlResponse(
                 url, clock.instant().plus(FileStorageSupport.PRESIGNED_URL_TTL));
     }
@@ -168,6 +173,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
         document.prepareForRetry();
         document = documents.save(document);
         submit(document);
+
         return mapper.toResponse(document, null);
     }
 

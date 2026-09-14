@@ -88,6 +88,7 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
             JobAnalysis analysis = analysisService.analyze(item.displayName(), extractedText);
             int durationMs = AiExecutionMetadata.toNonNegativeInt(
                     System.currentTimeMillis() - startedAt);
+
             persist(jobDescriptionId, extractedText, analysis, durationMs);
         } catch (DomainException exception) {
             markFailed(jobDescriptionId, exception.getCode(), exception.getMessage());
@@ -138,6 +139,7 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
                     "Extracted job description must not exceed %d characters"
                             .formatted(properties.maxTextCharacters()));
         }
+
         return normalized;
     }
 
@@ -151,6 +153,7 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
             document.markAnalyzing();
             return true;
         });
+
         return Boolean.TRUE.equals(changed);
     }
 

@@ -20,6 +20,8 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     Optional<UserAccount> findByGoogleId(String googleId);
 
+    boolean existsByRole(UserRole role);
+
     long countByEnabledTrue();
 
     long countByCreatedAtGreaterThanEqual(Instant createdAfter);

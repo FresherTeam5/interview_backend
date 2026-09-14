@@ -47,6 +47,12 @@ springdoc:
     operations-sorter: method
 
 app:
+  admin-bootstrap:
+    enabled: ${APP_ADMIN_BOOTSTRAP_ENABLED:true}
+    email: ${APP_ADMIN_BOOTSTRAP_EMAIL:thaitruong@admin.com}
+    password: ${APP_ADMIN_BOOTSTRAP_PASSWORD:12345678}
+    full-name: ${APP_ADMIN_BOOTSTRAP_FULL_NAME:System Administrator}
+
   jwt:
     secret: ${JWT_SECRET:eventhub-dev-only-secret-key-2026-doi-truoc-khi-deploy}
     expiration-ms: ${JWT_EXPIRATION_MS:9000000}

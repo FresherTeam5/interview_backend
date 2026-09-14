@@ -20,6 +20,7 @@ public class PdfTextExtractor {
             PDFTextStripper stripper = new PDFTextStripper();
             // sắp xếp theo vị trí để đọc đúng thứ tự các cột
             stripper.setSortByPosition(true);
+
             return stripper.getText(document);
         }
     }

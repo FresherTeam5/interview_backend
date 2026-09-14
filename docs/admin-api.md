@@ -3,8 +3,30 @@
 Các endpoint trong tài liệu này yêu cầu access token của tài khoản có role `ADMIN`.
 Tài khoản thường nhận `403 ACCESS_DENIED`; request chưa xác thực nhận `401`.
 
-Backend không cung cấp API nâng role. Ở môi trường phát triển, tạo một tài khoản qua
-luồng đăng ký rồi cập nhật role bằng thao tác quản trị database có kiểm soát.
+Backend không cung cấp API nâng role. Tài khoản admin đầu tiên có thể được tạo bằng
+bootstrap có kiểm soát khi khởi động ứng dụng.
+
+## Khởi tạo admin đầu tiên
+
+Bootstrap mặc định bị tắt. Cấu hình các biến môi trường sau trong lần khởi động cần
+tạo admin:
+
+```env
+APP_ADMIN_BOOTSTRAP_ENABLED=true
+APP_ADMIN_BOOTSTRAP_EMAIL=admin@example.com
+APP_ADMIN_BOOTSTRAP_PASSWORD=a-strong-admin-password
+APP_ADMIN_BOOTSTRAP_FULL_NAME=System Administrator
+```
+
+Email được chuẩn hóa về chữ thường. Mật khẩu phải dài từ 12 đến 100 ký tự và được
+lưu dưới dạng BCrypt. Backend chỉ tạo tài khoản khi hệ thống chưa có admin và email
+cấu hình chưa thuộc tài khoản khác. Nếu email đã thuộc một `USER`, ứng dụng dừng
+khởi động thay vì tự nâng quyền.
+
+Sau khi tạo thành công, đặt `APP_ADMIN_BOOTSTRAP_ENABLED=false` và xóa
+`APP_ADMIN_BOOTSTRAP_PASSWORD` khỏi môi trường triển khai. Những lần khởi động lại
+không thay đổi admin, trạng thái tài khoản hoặc mật khẩu đã tồn tại. Khi triển khai
+nhiều replica, chỉ bật bootstrap trên một replica trong lần khởi tạo đầu tiên.
 
 ## Tổng quan
 
