@@ -51,6 +51,8 @@ class AuthControllerTest {
                 "https://example.com/avatar.png",
                 UserRole.USER,
                 createdAt,
+                null,
+                createdAt,
                 updatedAt
         );
         when(authService.currentUser(10L)).thenReturn(response);

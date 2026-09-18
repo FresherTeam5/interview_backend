@@ -6,6 +6,8 @@ import com.baseProject.myBaseProject.dto.template.InterviewTemplateSummaryRespon
 import com.baseProject.myBaseProject.dto.template.TemplatePageResponse;
 import com.baseProject.myBaseProject.dto.template.TemplateVersionRequest;
 import com.baseProject.myBaseProject.dto.template.UpdateInterviewTemplateRequest;
+import com.baseProject.myBaseProject.dto.template.CloneInterviewTemplateRequest;
+import com.baseProject.myBaseProject.dto.template.TemplateFavoriteResponse;
 import com.baseProject.myBaseProject.security.CustomUserDetails;
 import com.baseProject.myBaseProject.security.authorization.CurrentUser;
 import com.baseProject.myBaseProject.security.authorization.IsAdmin;
@@ -17,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -41,9 +44,37 @@ public class InterviewTemplateController {
     public TemplatePageResponse<InterviewTemplateSummaryResponse> list(
             @CurrentUser CustomUserDetails user,
             @RequestParam(defaultValue = "mine") String scope,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String seniority,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String technology,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return service.list(user.getId(), scope, page, size);
+        return service.list(user.getId(), scope, keyword, seniority,
+                language, technology, page, size);
+    }
+
+    @PostMapping("/{id}/clone")
+    @Operation(summary = "Sao chép mẫu phỏng vấn",
+            description = "Tạo một bản nháp riêng từ mẫu mà người dùng có quyền xem.")
+    public InterviewTemplateResponse cloneTemplate(
+            @CurrentUser CustomUserDetails user, @PathVariable Long id,
+            @Valid @RequestBody(required = false) CloneInterviewTemplateRequest request) {
+        return service.cloneTemplate(user.getId(), id, request);
+    }
+
+    @PostMapping("/{id}/favorite")
+    @Operation(summary = "Thêm mẫu vào danh sách yêu thích")
+    public TemplateFavoriteResponse favorite(
+            @CurrentUser CustomUserDetails user, @PathVariable Long id) {
+        return service.favorite(user.getId(), id);
+    }
+
+    @DeleteMapping("/{id}/favorite")
+    @Operation(summary = "Xóa mẫu khỏi danh sách yêu thích")
+    public TemplateFavoriteResponse unfavorite(
+            @CurrentUser CustomUserDetails user, @PathVariable Long id) {
+        return service.unfavorite(user.getId(), id);
     }
 
     @GetMapping("/{id}")

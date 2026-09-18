@@ -61,6 +61,7 @@ class CandidateProfileServiceImplTest {
                 skillRepository,
                 projectRepository,
                 profileMapper,
+                mock(com.baseProject.myBaseProject.repository.UserAccountRepository.class),
                 entityManager,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
@@ -82,7 +83,7 @@ class CandidateProfileServiceImplTest {
                 21L, 0L, "Backend profile", 11L, "cv.pdf", null, null, null,
                 null, null, 2, 5, 3, NOW, NOW);
 
-        when(profileRepository.findByUserIdAndCvDocumentActiveTrueOrderByCreatedAtDesc(4L))
+        when(profileRepository.findAvailableByUserId(4L))
                 .thenReturn(List.of(profile));
         when(educationRepository.countGroupedByProfileIds(List.of(21L)))
                 .thenReturn(List.of(educationCount));

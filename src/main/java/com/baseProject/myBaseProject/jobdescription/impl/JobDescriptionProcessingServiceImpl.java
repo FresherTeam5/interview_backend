@@ -18,6 +18,8 @@ import com.baseProject.myBaseProject.repository.InterviewTemplateRepository;
 import com.baseProject.myBaseProject.repository.JobDescriptionAnalysisResultRepository;
 import com.baseProject.myBaseProject.repository.JobDescriptionDocumentRepository;
 import com.baseProject.myBaseProject.storage.StorageService;
+import com.baseProject.myBaseProject.service.NotificationService;
+import com.baseProject.myBaseProject.enums.UserNotificationType;
 import com.baseProject.myBaseProject.util.pdf.PdfTextExtractor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -44,6 +46,7 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
     private final JobDescriptionProperties properties;
     private final ChatModel chatModel;
     private final Clock clock;
+    private final NotificationService notifications;
     private final TransactionTemplate transactions;
 
     public JobDescriptionProcessingServiceImpl(
@@ -57,6 +60,7 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
             JobDescriptionProperties properties,
             ChatModel chatModel,
             Clock clock,
+            NotificationService notifications,
             PlatformTransactionManager transactionManager) {
         this.documents = documents;
         this.results = results;
@@ -68,6 +72,7 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
         this.properties = properties;
         this.chatModel = chatModel;
         this.clock = clock;
+        this.notifications = notifications;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
@@ -89,17 +94,25 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
             int durationMs = AiExecutionMetadata.toNonNegativeInt(
                     System.currentTimeMillis() - startedAt);
 
-            persist(jobDescriptionId, extractedText, analysis, durationMs);
+            if (persist(jobDescriptionId, extractedText, analysis, durationMs)) {
+                notifySafely(item.userId(), UserNotificationType.JOB_DESCRIPTION_READY,
+                        "Job description analysis completed",
+                        "Your job description has been analyzed and its interview template is ready.",
+                        jobDescriptionId);
+            }
         } catch (DomainException exception) {
-            markFailed(jobDescriptionId, exception.getCode(), exception.getMessage());
+            notifyFailure(jobDescriptionId,
+                    markFailed(jobDescriptionId, exception.getCode(), exception.getMessage()));
         } catch (IOException exception) {
             log.warn("Cannot extract text from job description id={}", jobDescriptionId, exception);
-            markFailed(jobDescriptionId, ErrorCode.JD_PROCESSING_FAILED,
-                    ErrorCode.JD_PROCESSING_FAILED.getDefaultMessage());
+            notifyFailure(jobDescriptionId, markFailed(jobDescriptionId,
+                    ErrorCode.JD_PROCESSING_FAILED,
+                    ErrorCode.JD_PROCESSING_FAILED.getDefaultMessage()));
         } catch (RuntimeException exception) {
             log.error("Job description processing failed, id={}", jobDescriptionId, exception);
-            markFailed(jobDescriptionId, ErrorCode.JD_PROCESSING_FAILED,
-                    ErrorCode.JD_PROCESSING_FAILED.getDefaultMessage());
+            notifyFailure(jobDescriptionId, markFailed(jobDescriptionId,
+                    ErrorCode.JD_PROCESSING_FAILED,
+                    ErrorCode.JD_PROCESSING_FAILED.getDefaultMessage()));
         }
     }
 
@@ -122,7 +135,8 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
             }
 
             return new WorkItem(document.getSourceType(), document.getStorageKey(),
-                    document.getSourceText(), document.getOriginalFilename());
+                    document.getSourceText(), document.getOriginalFilename(),
+                    document.getOwner().getId());
         });
     }
 
@@ -157,18 +171,18 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
         return Boolean.TRUE.equals(changed);
     }
 
-    private void persist(Long id, String extractedText, JobAnalysis analysis, int durationMs) {
+    private boolean persist(Long id, String extractedText, JobAnalysis analysis, int durationMs) {
         Instant now = clock.instant();
-        transactions.executeWithoutResult(status -> {
+        Boolean persisted = transactions.execute(status -> {
             JobDescriptionDocument document = documents.findByIdForUpdate(id)
                     .orElseThrow(() -> new DomainException(ErrorCode.JD_NOT_FOUND));
             if (!document.isActive() || document.getStatus() != JobDescriptionStatus.ANALYZING) {
-                return;
+                return false;
             }
             if (results.existsByJobDescriptionId(id)
                     || templates.findBySourceJobDescriptionId(id).isPresent()) {
                 document.markReady(now);
-                return;
+                return false;
             }
             String json = analysisJsonMapper.toJson(analysis);
             results.save(JobDescriptionAnalysisResult.builder()
@@ -193,19 +207,45 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
             template.setUpdatedAt(now);
             templates.save(template);
             document.markReady(now);
+            return true;
         });
+        return Boolean.TRUE.equals(persisted);
     }
 
-    private void markFailed(Long id, ErrorCode code, String message) {
+    private Long markFailed(Long id, ErrorCode code, String message) {
         try {
-            transactions.executeWithoutResult(status ->
-                    documents.findByIdForUpdate(id).ifPresent(document -> {
+            return transactions.execute(status -> {
+                JobDescriptionDocument document = documents.findByIdForUpdate(id).orElse(null);
+                if (document != null) {
                         if (document.isProcessing()) {
                             document.markFailed(code.name(), message);
+                            return document.getOwner().getId();
                         }
-                    }));
+                }
+                return null;
+            });
         } catch (RuntimeException exception) {
             log.error("Cannot persist FAILED status for job description id={}", id, exception);
+            return null;
+        }
+    }
+
+    private void notifyFailure(Long id, Long userId) {
+        if (userId != null) {
+            notifySafely(userId, UserNotificationType.JOB_DESCRIPTION_FAILED,
+                    "Job description analysis failed",
+                    "We could not analyze your job description. You can retry from the job description page.",
+                    id);
+        }
+    }
+
+    private void notifySafely(Long userId, UserNotificationType type,
+                              String title, String message, Long resourceId) {
+        try {
+            notifications.create(userId, type, title, message,
+                    "JOB_DESCRIPTION", resourceId);
+        } catch (RuntimeException exception) {
+            log.warn("Cannot create job description notification, id={}", resourceId, exception);
         }
     }
 
@@ -226,6 +266,6 @@ public class JobDescriptionProcessingServiceImpl implements JobDescriptionProces
     }
 
     private record WorkItem(JobDescriptionSourceType sourceType, String storageKey,
-                            String sourceText, String displayName) {
+                            String sourceText, String displayName, Long userId) {
     }
 }

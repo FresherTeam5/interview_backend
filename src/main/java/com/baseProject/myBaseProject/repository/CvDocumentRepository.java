@@ -3,6 +3,8 @@ package com.baseProject.myBaseProject.repository;
 import com.baseProject.myBaseProject.entity.CvDocument;
 import com.baseProject.myBaseProject.enums.CvDocumentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -25,4 +27,7 @@ public interface CvDocumentRepository extends JpaRepository<CvDocument, Long> {
     List<CvDocument> findByStatusInAndUploadedAtBefore(
             Collection<CvDocumentStatus> statuses,
             Instant uploadedBefore);
+
+    @Query("SELECT document.storageKey FROM CvDocument document WHERE document.user.id = :userId")
+    List<String> findStorageKeysByUserId(@Param("userId") Long userId);
 }

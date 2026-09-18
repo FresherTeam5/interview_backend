@@ -223,6 +223,7 @@ class InterviewScoringServiceImplTest {
                     new ObjectMapper(),
                     chatModel,
                     Clock.fixed(NOW, ZoneOffset.UTC),
+                    mock(com.baseProject.myBaseProject.service.NotificationService.class),
                     transactionManager());
         }
     }

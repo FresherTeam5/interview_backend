@@ -168,6 +168,40 @@ public class InterviewConversationServiceImpl implements InterviewConversationSe
     }
 
     @Override
+    public InterviewAnswerResponse retryFailedAnswer(
+            Long userId,
+            Long sessionId,
+            Long candidateTurnId) {
+        RetryAnswer retry = transactions.execute(status -> {
+            InterviewSession session = sessions.findByIdAndUserId(sessionId, userId)
+                    .orElseThrow(() -> new DomainException(
+                            ErrorCode.INTERVIEW_SESSION_NOT_FOUND));
+            InterviewTurn candidate = turns.findByIdAndSessionId(candidateTurnId, sessionId)
+                    .orElseThrow(() -> new DomainException(
+                            ErrorCode.INTERVIEW_TURN_NOT_RETRYABLE));
+            if (candidate.getRole() != InterviewTurnRole.CANDIDATE
+                    || candidate.getProcessingStatus() != InterviewTurnProcessingStatus.FAILED
+                    || candidate.getIdempotencyKey() == null) {
+                throw new DomainException(ErrorCode.INTERVIEW_TURN_NOT_RETRYABLE);
+            }
+            return new RetryAnswer(
+                    candidate.getIdempotencyKey(),
+                    new SubmitInterviewAnswerRequest(
+                            candidate.getTurnIndex() - 1,
+                            candidate.getContentText(),
+                            candidate.getInputMode()));
+        });
+        if (retry == null) {
+            throw new IllegalStateException("Interview retry transaction returned no result");
+        }
+        return answer(
+                userId,
+                sessionId,
+                retry.idempotencyKey(),
+                retry.request());
+    }
+
+    @Override
     public InterviewConversationResponse finish(Long userId, Long sessionId) {
         transactions.executeWithoutResult(status -> {
             InterviewSession session = ownedForUpdate(userId, sessionId);
@@ -581,5 +615,10 @@ public class InterviewConversationServiceImpl implements InterviewConversationSe
             Long candidateTurnId,
             boolean generateReply,
             boolean closedWithoutAnswer) {
+    }
+
+    private record RetryAnswer(
+            String idempotencyKey,
+            SubmitInterviewAnswerRequest request) {
     }
 }

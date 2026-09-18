@@ -16,7 +16,7 @@ stateDiagram-v2
     SCORING_FAILED --> SCORING: POST /scoring/retry
 ```
 
-`CANCELLED` và `EXPIRED` có trong enum nhưng hiện không có endpoint/transition public tạo ra hai state này. Frontend vẫn nên parse chúng như terminal fallback.
+`CANCELLED` được tạo bởi `POST /api/interview-sessions/{id}/cancel` khi phiên chưa bắt đầu. `EXPIRED` vẫn là terminal fallback.
 
 Mọi endpoint yêu cầu Bearer token và chỉ owner của session truy cập được.
 
@@ -40,6 +40,7 @@ type InterviewEndReason =
   | "AI_COMPLETED"
   | "TIME_EXPIRED"
   | "CANDIDATE_FINISHED"
+  | "USER_CANCELLED"
   | "SYSTEM_TERMINATED";
 type InterviewTurnRole = "INTERVIEWER" | "CANDIDATE";
 type InterviewTurnAction = "OPENING" | "EXPLORE" | "FOLLOW_UP" | "HANDLE_REQUEST" | "CLOSE";

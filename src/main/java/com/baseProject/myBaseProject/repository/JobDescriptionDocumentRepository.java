@@ -28,4 +28,12 @@ public interface JobDescriptionDocumentRepository extends JpaRepository<JobDescr
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT d FROM JobDescriptionDocument d WHERE d.id = :id")
     Optional<JobDescriptionDocument> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("""
+            SELECT document.storageKey
+            FROM JobDescriptionDocument document
+            WHERE document.owner.id = :userId
+              AND document.storageKey IS NOT NULL
+            """)
+    List<String> findStorageKeysByOwnerId(@Param("userId") Long userId);
 }

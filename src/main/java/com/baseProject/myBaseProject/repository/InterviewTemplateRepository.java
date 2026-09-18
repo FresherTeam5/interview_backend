@@ -40,6 +40,46 @@ public interface InterviewTemplateRepository extends JpaRepository<InterviewTemp
 
     Page<InterviewTemplate> findByPublishedAtIsNotNullAndArchivedAtIsNull(Pageable pageable);
 
+    @Query("""
+            SELECT template
+            FROM InterviewTemplate template
+            WHERE template.owner.id = :userId
+              AND (:keyword IS NULL
+                   OR LOWER(template.title) LIKE :keyword
+                   OR LOWER(template.jobTitle) LIKE :keyword
+                   OR LOWER(template.contentJson) LIKE :keyword)
+              AND (:seniority IS NULL OR LOWER(template.targetSeniority) = :seniority)
+              AND (:language IS NULL OR LOWER(template.contentJson) LIKE :language)
+              AND (:technology IS NULL OR LOWER(template.contentJson) LIKE :technology)
+            """)
+    Page<InterviewTemplate> searchMine(
+            @Param("userId") Long userId,
+            @Param("keyword") String keyword,
+            @Param("seniority") String seniority,
+            @Param("language") String language,
+            @Param("technology") String technology,
+            Pageable pageable);
+
+    @Query("""
+            SELECT template
+            FROM InterviewTemplate template
+            WHERE template.publishedAt IS NOT NULL
+              AND template.archivedAt IS NULL
+              AND (:keyword IS NULL
+                   OR LOWER(template.title) LIKE :keyword
+                   OR LOWER(template.jobTitle) LIKE :keyword
+                   OR LOWER(template.contentJson) LIKE :keyword)
+              AND (:seniority IS NULL OR LOWER(template.targetSeniority) = :seniority)
+              AND (:language IS NULL OR LOWER(template.contentJson) LIKE :language)
+              AND (:technology IS NULL OR LOWER(template.contentJson) LIKE :technology)
+            """)
+    Page<InterviewTemplate> searchPublic(
+            @Param("keyword") String keyword,
+            @Param("seniority") String seniority,
+            @Param("language") String language,
+            @Param("technology") String technology,
+            Pageable pageable);
+
     Optional<InterviewTemplate> findByIdAndPublishedAtIsNotNullAndArchivedAtIsNull(Long id);
 
     long countByPublishedAtIsNotNullAndArchivedAtIsNull();
@@ -47,7 +87,7 @@ public interface InterviewTemplateRepository extends JpaRepository<InterviewTemp
     @Query("""
             SELECT template
             FROM InterviewTemplate template
-            JOIN FETCH template.sourceJobDescription
+            LEFT JOIN FETCH template.sourceJobDescription
             WHERE template.id = :id
               AND (template.owner.id = :userId
                    OR (template.publishedAt IS NOT NULL AND template.archivedAt IS NULL))

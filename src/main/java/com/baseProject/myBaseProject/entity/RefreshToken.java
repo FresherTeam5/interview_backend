@@ -52,6 +52,15 @@ public class RefreshToken {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    @Column(name = "user_agent", length = 500)
+    private String userAgent;
+
+    @Column(name = "ip_address", length = 64)
+    private String ipAddress;
+
+    @Column(name = "last_used_at", nullable = false)
+    private Instant lastUsedAt;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private UserAccount user;

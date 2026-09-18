@@ -158,3 +158,111 @@ databaseChangeLog:
             path: db/changelog/sql/010-admin-transition-actor.sql
             splitStatements: true
             stripComments: true
+
+  - changeSet:
+      id: 011-account-lifecycle
+      author: my-interview-team
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/011-account-lifecycle.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 012-drop-session-end-reason-check
+      author: my-interview-team
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 1
+            sql: >-
+              SELECT COUNT(*) FROM information_schema.table_constraints
+              WHERE constraint_schema = DATABASE()
+                AND table_name = 'interview_sessions'
+                AND constraint_name = 'chk_interview_session_end_reason'
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/012-session-cancellation.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 012-add-user-cancelled-end-reason
+      author: my-interview-team
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: >-
+              SELECT COUNT(*) FROM information_schema.table_constraints
+              WHERE constraint_schema = DATABASE()
+                AND table_name = 'interview_sessions'
+                AND constraint_name = 'chk_interview_session_end_reason'
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/012-add-user-cancelled-end-reason.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 013-user-discovery-notifications
+      author: my-interview-team
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/013-user-discovery-notifications.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 013-drop-profile-source-check
+      author: my-interview-team
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 1
+            sql: >-
+              SELECT COUNT(*) FROM information_schema.table_constraints
+              WHERE constraint_schema = DATABASE()
+                AND table_name = 'candidate_profiles'
+                AND constraint_name = 'chk_candidate_profiles_source'
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/013-drop-profile-source-check.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 013-add-manual-profile-source
+      author: my-interview-team
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: >-
+              SELECT COUNT(*) FROM information_schema.table_constraints
+              WHERE constraint_schema = DATABASE()
+                AND table_name = 'candidate_profiles'
+                AND constraint_name = 'chk_candidate_profiles_source'
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/013-add-manual-profile-source.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 014-user-feedback-support
+      author: my-interview-team
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/014-user-feedback-support.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 015-account-deletion-purge
+      author: my-interview-team
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/015-account-deletion-purge.sql
+            splitStatements: true
+            stripComments: true

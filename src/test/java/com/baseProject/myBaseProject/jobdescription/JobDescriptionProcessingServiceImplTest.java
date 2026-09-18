@@ -70,6 +70,7 @@ class JobDescriptionProcessingServiceImplTest {
                 new JobAnalysisJsonMapper(objectMapper), mock(PdfTextExtractor.class),
                 mock(StorageService.class), new JobDescriptionProperties(5_000_000, 20, 50, 30_000),
                 mock(ChatModel.class), Clock.fixed(Instant.parse("2026-09-05T01:00:00Z"), ZoneOffset.UTC),
+                mock(com.baseProject.myBaseProject.service.NotificationService.class),
                 transactionManager);
 
         service.processAsync(11L);

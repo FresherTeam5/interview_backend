@@ -14,5 +14,7 @@ public interface InterviewSessionService {
 
     InterviewSessionStatusResponse retryPreparation(Long userId, Long sessionId);
 
+    InterviewSessionStatusResponse cancel(Long userId, Long sessionId);
+
     void retryPreparationForAdmin(Long sessionId);
 }

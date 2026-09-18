@@ -34,7 +34,7 @@ Validation:
 |---|---|
 | `fullName` | Bắt buộc, tối đa 150 ký tự; backend trim trước khi lưu |
 | `email` | Bắt buộc, đúng email, tối đa 150; backend trim và lowercase |
-| `password` | Bắt buộc, 6–100 ký tự |
+| `password` | Bắt buộc, 8–100 ký tự |
 
 Lỗi riêng: `409 DUPLICATE_EMAIL`.
 
@@ -140,4 +140,3 @@ Authorization: Bearer <accessToken>
 ```
 
 Response `204 No Content`, revoke mọi refresh token của user và clear cookie hiện tại. Frontend xóa access token.
-

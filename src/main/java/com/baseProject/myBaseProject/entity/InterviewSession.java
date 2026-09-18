@@ -294,4 +294,12 @@ public class InterviewSession {
         completedAt = null;
         updatedAt = now;
     }
+
+    public void cancel(Instant now) {
+        status = InterviewSessionStatus.CANCELLED;
+        endReason = InterviewEndReason.USER_CANCELLED;
+        endedAt = now;
+        lastActivityAt = now;
+        updatedAt = now;
+    }
 }

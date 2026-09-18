@@ -1,6 +1,8 @@
 package com.baseProject.myBaseProject.service.impl;
 
 import com.baseProject.myBaseProject.config.properites.RefreshTokenProperties;
+import com.baseProject.myBaseProject.dto.account.ClientMetadata;
+import com.baseProject.myBaseProject.dto.account.LoginSessionResponse;
 import com.baseProject.myBaseProject.entity.RefreshToken;
 import com.baseProject.myBaseProject.entity.UserAccount;
 import com.baseProject.myBaseProject.exception.DomainException;
@@ -17,6 +19,8 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -33,12 +37,24 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     @Transactional
     public String issue(UserAccount user) {
-        return persist(user, UUID.randomUUID().toString(), clock.instant());
+        return issue(user, ClientMetadata.unknown());
+    }
+
+    @Override
+    @Transactional
+    public String issue(UserAccount user, ClientMetadata metadata) {
+        return persist(user, UUID.randomUUID().toString(), clock.instant(), metadata);
     }
 
     @Override
     @Transactional
     public RotationResult rotate(String rawToken) {
+        return rotate(rawToken, ClientMetadata.unknown());
+    }
+
+    @Override
+    @Transactional
+    public RotationResult rotate(String rawToken, ClientMetadata metadata) {
         Instant now = clock.instant();
         RefreshToken stored = refreshTokenRepository.findByTokenHashForUpdate(hash(rawToken))
                 .orElseThrow(() -> new DomainException(ErrorCode.INVALID_REFRESH_TOKEN));
@@ -59,7 +75,8 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         }
 
         stored.setRevokedAt(now);
-        String newRefreshtoken = persist(user, stored.getFamilyId(), now);
+        stored.setLastUsedAt(now);
+        String newRefreshtoken = persist(user, stored.getFamilyId(), now, metadata);
 
         return new RotationResult(user, newRefreshtoken);
     }
@@ -83,7 +100,45 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         return refreshTokenRepository.deleteAllExpiredBefore(clock.instant());
     }
 
-    private String persist(UserAccount user, String familyId, Instant now) {
+    @Override
+    @Transactional(readOnly = true)
+    public List<LoginSessionResponse> listSessions(Long userId, String currentRawToken) {
+        String currentFamily = currentRawToken == null
+                ? null
+                : refreshTokenRepository.findByTokenHash(hash(currentRawToken))
+                        .filter(token -> token.getUser().getId().equals(userId))
+                        .map(RefreshToken::getFamilyId)
+                        .orElse(null);
+        return refreshTokenRepository
+                .findByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByIssuedAtDesc(
+                        userId, clock.instant())
+                .stream()
+                .map(token -> new LoginSessionResponse(
+                        token.getFamilyId(),
+                        deviceName(token.getUserAgent()),
+                        token.getUserAgent(),
+                        token.getIpAddress(),
+                        token.getIssuedAt(),
+                        token.getLastUsedAt(),
+                        token.getExpiresAt(),
+                        token.getFamilyId().equals(currentFamily)))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void revokeSession(Long userId, String familyId) {
+        if (!refreshTokenRepository.existsByUserIdAndFamilyId(userId, familyId)) {
+            throw new DomainException(ErrorCode.DEVICE_SESSION_NOT_FOUND);
+        }
+        refreshTokenRepository.revokeFamilyForUser(userId, familyId, clock.instant());
+    }
+
+    private String persist(
+            UserAccount user,
+            String familyId,
+            Instant now,
+            ClientMetadata metadata) {
         String rawToken = generateRawToken();
         refreshTokenRepository.save(RefreshToken.builder()
                 .tokenHash(hash(rawToken))
@@ -91,6 +146,9 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
                 .user(user)
                 .issuedAt(now)
                 .expiresAt(now.plusMillis(properties.expirationMs()))
+                .userAgent(truncate(metadata.userAgent(), 500))
+                .ipAddress(truncate(metadata.ipAddress(), 64))
+                .lastUsedAt(now)
                 .build());
 
         return rawToken;
@@ -105,5 +163,34 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     private String hash(String rawToken) {
         return Sha256.hex(rawToken.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.strip();
+        return normalized.length() <= maxLength
+                ? normalized
+                : normalized.substring(0, maxLength);
+    }
+
+    private String deviceName(String userAgent) {
+        if (userAgent == null) {
+            return "Unknown device";
+        }
+        String value = userAgent.toLowerCase(Locale.ROOT);
+        String browser = value.contains("edg/") ? "Edge"
+                : value.contains("chrome/") ? "Chrome"
+                : value.contains("firefox/") ? "Firefox"
+                : value.contains("safari/") ? "Safari"
+                : "Browser";
+        String system = value.contains("android") ? "Android"
+                : value.contains("iphone") || value.contains("ipad") ? "iOS"
+                : value.contains("windows") ? "Windows"
+                : value.contains("mac os") ? "macOS"
+                : value.contains("linux") ? "Linux"
+                : "Unknown OS";
+        return browser + " on " + system;
     }
 }

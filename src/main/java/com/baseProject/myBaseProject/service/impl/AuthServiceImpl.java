@@ -18,6 +18,7 @@ import com.baseProject.myBaseProject.dto.auth.GoogleLoginRequest;
 import com.baseProject.myBaseProject.dto.auth.GoogleUserInfo;
 import com.baseProject.myBaseProject.dto.auth.LoginRequest;
 import com.baseProject.myBaseProject.dto.auth.RegisterRequest;
+import com.baseProject.myBaseProject.dto.account.ClientMetadata;
 import com.baseProject.myBaseProject.entity.UserAccount;
 import com.baseProject.myBaseProject.enums.UserRole;
 import com.baseProject.myBaseProject.exception.DomainException;
@@ -46,7 +47,7 @@ public class AuthServiceImpl implements AuthService {
     private final Clock clock;
 
     @Transactional
-    public AuthResult register(RegisterRequest request) {
+    public AuthResult register(RegisterRequest request, ClientMetadata metadata) {
         String email = request.email().trim().toLowerCase();
 
         if (userAccountRepository.existsByEmail(email)) {
@@ -65,11 +66,11 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         account = userAccountRepository.save(account);
 
-        return issueTokens(new CustomUserDetails(account), account);
+        return issueTokens(new CustomUserDetails(account), account, metadata);
     }
 
     @Transactional
-    public AuthResult login(LoginRequest request) {
+    public AuthResult login(LoginRequest request, ClientMetadata metadata) {
         String email = request.email().trim().toLowerCase();
 
         Authentication authentication = authenticationManager.authenticate(
@@ -81,11 +82,11 @@ public class AuthServiceImpl implements AuthService {
         // create a userAccout only id has value to create a foreign key
         UserAccount accountRef = userAccountRepository.getReferenceById(userDetails.getId());
 
-        return issueTokens(userDetails, accountRef);
+        return issueTokens(userDetails, accountRef, metadata);
     }
 
     @Transactional
-    public AuthResult loginWithGoogle(GoogleLoginRequest request) {
+    public AuthResult loginWithGoogle(GoogleLoginRequest request, ClientMetadata metadata) {
         GoogleUserInfo googleUser = googleIdTokenVerifier.verify(request.idToken());
 
         UserAccount account = userAccountRepository.findByGoogleId(googleUser.googleId())
@@ -100,7 +101,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         account = userAccountRepository.save(account);
-        return issueTokens(new CustomUserDetails(account), account);
+        return issueTokens(new CustomUserDetails(account), account, metadata);
     }
 
     @Transactional(readOnly = true)
@@ -114,6 +115,8 @@ public class AuthServiceImpl implements AuthService {
                 account.getEmail(),
                 account.getAvatarUrl(),
                 account.getRole(),
+                account.getEmailVerifiedAt(),
+                account.getDeletionRequestedAt(),
                 account.getCreatedAt(),
                 account.getUpdatedAt()
         );
@@ -128,6 +131,7 @@ public class AuthServiceImpl implements AuthService {
 
     private UserAccount linkGoogleAccount(UserAccount account, GoogleUserInfo googleUser) {
         account.setGoogleId(googleUser.googleId());
+        account.setEmailVerifiedAt(clock.instant());
 
         if (account.getAvatarUrl() == null) {
             account.setAvatarUrl(googleUser.avatarUrl());
@@ -146,14 +150,16 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(null)
                 .role(UserRole.USER)
                 .enabled(true)
+                .emailVerifiedAt(now)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
     }
 
     @Transactional
-    public AuthResult refresh(String refreshToken) {
-        RefreshTokenService.RotationResult rotation = refreshTokenService.rotate(refreshToken);
+    public AuthResult refresh(String refreshToken, ClientMetadata metadata) {
+        RefreshTokenService.RotationResult rotation = refreshTokenService.rotate(
+                refreshToken, metadata);
 
         CustomUserDetails userDetails = new CustomUserDetails(rotation.user());
         String accessToken = jwtService.generateAccessToken(userDetails);
@@ -172,9 +178,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     //create token and response
-    private AuthResult issueTokens(CustomUserDetails userDetails, UserAccount accountRef) {
+    private AuthResult issueTokens(
+            CustomUserDetails userDetails,
+            UserAccount accountRef,
+            ClientMetadata metadata) {
         String accessToken = jwtService.generateAccessToken(userDetails);
-        String refreshToken = refreshTokenService.issue(accountRef);
+        String refreshToken = refreshTokenService.issue(accountRef, metadata);
 
         return toResult(accessToken, refreshToken, userDetails);
     }

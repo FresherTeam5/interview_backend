@@ -12,5 +12,7 @@ public enum ProfileSource {
     /** Straight from the AI parse, untouched by the user. */
     AUTO_PARSED,
     /** The user has corrected at least one field. */
-    USER_EDITED
+    USER_EDITED,
+    /** The user created the profile without uploading a CV. */
+    MANUAL
 }

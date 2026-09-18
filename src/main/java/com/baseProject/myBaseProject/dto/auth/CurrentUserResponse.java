@@ -10,6 +10,8 @@ public record CurrentUserResponse(
         String email,
         String avatarUrl,
         UserRole role,
+        Instant emailVerifiedAt,
+        Instant deletionRequestedAt,
         Instant createdAt,
         Instant updatedAt
 ) {

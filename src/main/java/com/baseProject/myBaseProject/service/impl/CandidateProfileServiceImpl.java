@@ -7,6 +7,7 @@ import com.baseProject.myBaseProject.dto.profile.ProfileProjectDto;
 import com.baseProject.myBaseProject.dto.profile.ProfileSkillDto;
 import com.baseProject.myBaseProject.dto.profile.ProfileSummaryResponse;
 import com.baseProject.myBaseProject.dto.profile.ProfileUpdateRequest;
+import com.baseProject.myBaseProject.dto.profile.CreateCandidateProfileRequest;
 import com.baseProject.myBaseProject.entity.CandidateProfile;
 import com.baseProject.myBaseProject.entity.CvDocument;
 import com.baseProject.myBaseProject.entity.ProfileEducation;
@@ -19,6 +20,7 @@ import com.baseProject.myBaseProject.repository.CandidateProfileRepository;
 import com.baseProject.myBaseProject.repository.ProfileEducationRepository;
 import com.baseProject.myBaseProject.repository.ProfileProjectRepository;
 import com.baseProject.myBaseProject.repository.ProfileSkillRepository;
+import com.baseProject.myBaseProject.repository.UserAccountRepository;
 import com.baseProject.myBaseProject.repository.projection.ProfileItemCount;
 import com.baseProject.myBaseProject.service.CandidateProfileService;
 import jakarta.persistence.EntityManager;
@@ -47,6 +49,7 @@ public class CandidateProfileServiceImpl implements CandidateProfileService {
     private final ProfileSkillRepository skillRepository;
     private final ProfileProjectRepository projectRepository;
     private final ProfileMapper profileMapper;
+    private final UserAccountRepository users;
     private final EntityManager entityManager;
     private final Clock clock;
 
@@ -68,10 +71,40 @@ public class CandidateProfileServiceImpl implements CandidateProfileService {
     }
 
     @Override
+    @Transactional
+    public CandidateProfileResponse createManual(
+            Long userId, CreateCandidateProfileRequest request) {
+        rejectDuplicateSkillNames(request.skills());
+        Instant now = clock.instant();
+        CandidateProfile profile = candidateProfileRepository.save(
+                profileMapper.newManualProfile(users.getReferenceById(userId), request, now));
+
+        List<ProfileEducation> educations = new ArrayList<>();
+        for (int index = 0; index < request.educations().size(); index++) {
+            educations.add(profileMapper.newEducation(
+                    profile, request.educations().get(index), (short) index));
+        }
+        List<ProfileSkill> skills = new ArrayList<>();
+        for (int index = 0; index < request.skills().size(); index++) {
+            skills.add(profileMapper.newSkill(profile, request.skills().get(index), (short) index));
+        }
+        List<ProfileProject> projects = new ArrayList<>();
+        for (int index = 0; index < request.projects().size(); index++) {
+            projects.add(profileMapper.newProject(
+                    profile, request.projects().get(index), (short) index));
+        }
+        educationRepository.saveAll(educations);
+        skillRepository.saveAll(skills);
+        projectRepository.saveAll(projects);
+        entityManager.flush();
+        return toResponse(profile);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<ProfileSummaryResponse> list(Long userId) {
         List<CandidateProfile> profiles = candidateProfileRepository
-                .findByUserIdAndCvDocumentActiveTrueOrderByCreatedAtDesc(userId);
+                .findAvailableByUserId(userId);
         if (profiles.isEmpty()) {
             return List.of();
         }
@@ -190,7 +223,7 @@ public class CandidateProfileServiceImpl implements CandidateProfileService {
 
     private CandidateProfile requireProfile(Long userId, Long profileId) {
         return candidateProfileRepository
-                .findByIdAndUserIdAndCvDocumentActiveTrue(profileId, userId)
+                .findAvailableByIdAndUserId(profileId, userId)
                 .orElseThrow(() -> new DomainException(ErrorCode.PROFILE_NOT_FOUND));
     }
 

@@ -15,6 +15,11 @@ public interface InterviewConversationService {
             String idempotencyKey,
             SubmitInterviewAnswerRequest request);
 
+    InterviewAnswerResponse retryFailedAnswer(
+            Long userId,
+            Long sessionId,
+            Long candidateTurnId);
+
     InterviewConversationResponse finish(Long userId, Long sessionId);
 
     void continueAfterRealtimeFallback(Long userId, Long sessionId);

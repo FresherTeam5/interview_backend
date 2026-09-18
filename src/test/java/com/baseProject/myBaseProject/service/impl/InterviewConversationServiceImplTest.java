@@ -182,6 +182,27 @@ class InterviewConversationServiceImplTest {
             assertThat(turn.processingStatus().name()).isEqualTo("FAILED");
             assertThat(turn.processingErrorCode()).isEqualTo("AI_TIMEOUT");
         });
+
+        InterviewTurn failed = fixture.candidate.get();
+        when(fixture.turns.findByIdAndSessionId(failed.getId(), SESSION_ID))
+                .thenReturn(Optional.of(failed));
+        org.mockito.Mockito.doReturn(
+                new InterviewReplyResult(
+                        CandidateIntent.ANSWER,
+                        InterviewTurnAction.FOLLOW_UP,
+                        "Bạn có thể mô tả kết quả không?",
+                        null,
+                        "Ứng viên đã mô tả REST API.",
+                        List.of()))
+                .when(fixture.engine).reply(any(), any(), any(Long.class));
+
+        var retried = fixture.service.retryFailedAnswer(
+                USER_ID, SESSION_ID, failed.getId());
+
+        assertThat(retried.candidateTurn().id()).isEqualTo(failed.getId());
+        assertThat(retried.candidateTurn().processingStatus().name()).isEqualTo("COMPLETED");
+        assertThat(retried.interviewerTurn().content())
+                .isEqualTo("Bạn có thể mô tả kết quả không?");
     }
 
     @Test

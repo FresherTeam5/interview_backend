@@ -4,6 +4,8 @@ import com.baseProject.myBaseProject.dto.template.InterviewTemplateResponse;
 import com.baseProject.myBaseProject.dto.template.InterviewTemplateSummaryResponse;
 import com.baseProject.myBaseProject.dto.template.TemplatePageResponse;
 import com.baseProject.myBaseProject.dto.template.UpdateInterviewTemplateRequest;
+import com.baseProject.myBaseProject.dto.template.CloneInterviewTemplateRequest;
+import com.baseProject.myBaseProject.dto.template.TemplateFavoriteResponse;
 import com.baseProject.myBaseProject.entity.InterviewTemplate;
 import com.baseProject.myBaseProject.enums.UserRole;
 import com.baseProject.myBaseProject.exception.DomainException;
@@ -12,6 +14,8 @@ import com.baseProject.myBaseProject.jobdescription.mapper.JobAnalysisJsonMapper
 import com.baseProject.myBaseProject.jobdescription.validation.JobAnalysisValidator;
 import com.baseProject.myBaseProject.mapper.InterviewTemplateMapper;
 import com.baseProject.myBaseProject.repository.InterviewTemplateRepository;
+import com.baseProject.myBaseProject.repository.TemplateFavoriteRepository;
+import com.baseProject.myBaseProject.repository.TemplateViewRepository;
 import com.baseProject.myBaseProject.repository.UserAccountRepository;
 import com.baseProject.myBaseProject.service.InterviewTemplateService;
 import lombok.RequiredArgsConstructor;
@@ -23,19 +27,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InterviewTemplateServiceImpl implements InterviewTemplateService {
+    private static final int EXPORT_PAGE_SIZE = 100;
+
     private final InterviewTemplateRepository templates;
     private final UserAccountRepository users;
+    private final TemplateFavoriteRepository favorites;
+    private final TemplateViewRepository views;
     private final InterviewTemplateMapper mapper;
     private final JobAnalysisJsonMapper analysisJsonMapper;
     private final JobAnalysisValidator validator;
     private final Clock clock;
 
     @Override
+    @Transactional
     public InterviewTemplateResponse get(Long userId, Long id) {
         InterviewTemplate template = templates.findByIdAndOwnerId(id, userId).orElse(null);
         if (template == null) {
@@ -43,22 +54,89 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
                     .orElseThrow(this::notFound);
         }
 
+        views.recordView(userId, template.getId(), clock.instant());
         return mapper.toResponse(template);
     }
 
     @Override
     public TemplatePageResponse<InterviewTemplateSummaryResponse> list(
             Long userId, String scope, int page, int size) {
-        PageRequest pageable = pageRequest(page, size);
-        if ("mine".equals(scope)) {
-            return page(templates.findByOwnerId(userId, pageable).map(mapper::toSummary));
-        }
-        if ("public".equals(scope)) {
-            return page(templates.findByPublishedAtIsNotNullAndArchivedAtIsNull(pageable)
-                    .map(mapper::toSummary));
-        }
+        return list(userId, scope, null, null, null, null, page, size);
+    }
 
-        throw new DomainException(ErrorCode.VALIDATION_FAILED);
+    @Override
+    public TemplatePageResponse<InterviewTemplateSummaryResponse> list(
+            Long userId, String scope, String keyword, String seniority,
+            String language, String technology, int page, int size) {
+        String keywordFilter = contains(keyword);
+        String seniorityFilter = exact(seniority);
+        String languageFilter = jsonValue("sourceLanguage", language);
+        String technologyFilter = jsonValue("name", technology);
+        PageRequest pageable = pageRequest(page, size);
+        Page<InterviewTemplate> result = switch (scope) {
+            case "mine" -> templates.searchMine(userId, keywordFilter, seniorityFilter,
+                    languageFilter, technologyFilter, pageable);
+            case "public" -> templates.searchPublic(keywordFilter, seniorityFilter,
+                    languageFilter, technologyFilter, pageable);
+            case "favorites" -> favorites.searchFavorites(userId, keywordFilter, seniorityFilter,
+                    languageFilter, technologyFilter, pageable);
+            case "recent" -> views.searchRecent(userId, keywordFilter, seniorityFilter,
+                    languageFilter, technologyFilter,
+                    PageRequest.of(page, size));
+            default -> throw new DomainException(ErrorCode.VALIDATION_FAILED);
+        };
+        return page(result.map(mapper::toSummary));
+    }
+
+    @Override
+    public List<InterviewTemplateResponse> listOwnedDetails(Long userId) {
+        List<InterviewTemplateResponse> result = new ArrayList<>();
+        int page = 0;
+        Page<InterviewTemplate> templatesPage;
+        do {
+            templatesPage = templates.findByOwnerId(userId, PageRequest.of(
+                    page++, EXPORT_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt")));
+            templatesPage.map(mapper::toResponse).forEach(result::add);
+        } while (templatesPage.hasNext());
+        return List.copyOf(result);
+    }
+
+    @Override
+    @Transactional
+    public InterviewTemplateResponse cloneTemplate(
+            Long userId, Long id, CloneInterviewTemplateRequest request) {
+        InterviewTemplate source = accessible(userId, id);
+        Instant now = clock.instant();
+        String requestedTitle = request == null ? null : request.title();
+        String title = requestedTitle == null || requestedTitle.isBlank()
+                ? defaultCloneTitle(source.getTitle()) : normalizeTitle(requestedTitle);
+
+        InterviewTemplate clone = new InterviewTemplate();
+        clone.setOwner(users.getReferenceById(userId));
+        clone.setSourceJobDescription(null);
+        clone.setTitle(title);
+        clone.setJobTitle(source.getJobTitle());
+        clone.setTargetSeniority(source.getTargetSeniority());
+        clone.setContentJson(source.getContentJson());
+        clone.setContentSchemaVersion(source.getContentSchemaVersion());
+        clone.setCreatedAt(now);
+        clone.setUpdatedAt(now);
+        return mapper.toResponse(templates.saveAndFlush(clone));
+    }
+
+    @Override
+    @Transactional
+    public TemplateFavoriteResponse favorite(Long userId, Long id) {
+        InterviewTemplate template = accessible(userId, id);
+        favorites.addForUser(userId, template.getId(), clock.instant());
+        return new TemplateFavoriteResponse(id, true);
+    }
+
+    @Override
+    @Transactional
+    public TemplateFavoriteResponse unfavorite(Long userId, Long id) {
+        favorites.deleteForUser(userId, id);
+        return new TemplateFavoriteResponse(id, false);
     }
 
     @Override
@@ -171,6 +249,10 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
         return templates.findOwnedForUpdate(id, userId).orElseThrow(this::notFound);
     }
 
+    private InterviewTemplate accessible(Long userId, Long id) {
+        return templates.findAccessibleForSession(id, userId).orElseThrow(this::notFound);
+    }
+
     private void requireAdmin(Long userId) {
         var user = users.findById(userId)
                 .orElseThrow(() -> new DomainException(ErrorCode.AUTHENTICATION_REQUIRED));
@@ -218,6 +300,26 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
             throw new DomainException(ErrorCode.VALIDATION_FAILED);
         }
         return value.strip();
+    }
+
+    private String defaultCloneTitle(String sourceTitle) {
+        String title = "Copy of " + sourceTitle;
+        return title.length() <= 200 ? title : title.substring(0, 200);
+    }
+
+    private String contains(String value) {
+        String normalized = exact(value);
+        return normalized == null ? null : "%" + normalized + "%";
+    }
+
+    private String exact(String value) {
+        return value == null || value.isBlank() ? null : value.strip().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private String jsonValue(String key, String value) {
+        String normalized = exact(value);
+        return normalized == null ? null : "%\"" + key.toLowerCase(java.util.Locale.ROOT)
+                + "\":\"" + normalized + "\"%";
     }
 
     private void touch(InterviewTemplate template) {

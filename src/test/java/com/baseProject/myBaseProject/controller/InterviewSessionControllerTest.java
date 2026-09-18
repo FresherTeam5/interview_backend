@@ -5,6 +5,8 @@ import com.baseProject.myBaseProject.dto.session.InterviewConversationResponse;
 import com.baseProject.myBaseProject.dto.session.InterviewOptionResponse;
 import com.baseProject.myBaseProject.dto.session.InterviewReportResponse;
 import com.baseProject.myBaseProject.dto.session.InterviewSessionOptionsResponse;
+import com.baseProject.myBaseProject.dto.session.InterviewSessionPageResponse;
+import com.baseProject.myBaseProject.dto.session.InterviewSessionSummaryResponse;
 import com.baseProject.myBaseProject.dto.session.InterviewSessionStatusResponse;
 import com.baseProject.myBaseProject.dto.session.InterviewTurnResponse;
 import com.baseProject.myBaseProject.entity.UserAccount;
@@ -12,6 +14,7 @@ import com.baseProject.myBaseProject.enums.CandidateIntent;
 import com.baseProject.myBaseProject.enums.InterviewEndReason;
 import com.baseProject.myBaseProject.enums.InterviewSessionMode;
 import com.baseProject.myBaseProject.enums.InterviewSessionStatus;
+import com.baseProject.myBaseProject.enums.InterviewSessionNextAction;
 import com.baseProject.myBaseProject.enums.InterviewTurnAction;
 import com.baseProject.myBaseProject.enums.InterviewTurnInputMode;
 import com.baseProject.myBaseProject.enums.InterviewTurnRole;
@@ -19,6 +22,7 @@ import com.baseProject.myBaseProject.enums.InterviewerStyle;
 import com.baseProject.myBaseProject.enums.UserRole;
 import com.baseProject.myBaseProject.security.CustomUserDetails;
 import com.baseProject.myBaseProject.service.InterviewConversationService;
+import com.baseProject.myBaseProject.service.InterviewHistoryService;
 import com.baseProject.myBaseProject.service.InterviewReportService;
 import com.baseProject.myBaseProject.service.InterviewSessionService;
 import org.junit.jupiter.api.Test;
@@ -56,6 +60,9 @@ class InterviewSessionControllerTest {
     private InterviewSessionService service;
 
     @MockitoBean
+    private InterviewHistoryService historyService;
+
+    @MockitoBean
     private InterviewConversationService conversationService;
 
     @MockitoBean
@@ -85,6 +92,49 @@ class InterviewSessionControllerTest {
                 .andExpect(jsonPath("$.durationMinutes").value(30));
 
         verify(service).create(eq(7L), eq("request-1"), any());
+    }
+
+    @Test
+    void userCanListInterviewHistory() throws Exception {
+        when(historyService.list(
+                eq(7L), eq("backend"), eq(InterviewSessionStatus.COMPLETED),
+                eq(InterviewSessionMode.TURN_BASED), eq(null), eq(null), eq(0), eq(20)))
+                .thenReturn(new InterviewSessionPageResponse(
+                        List.of(new InterviewSessionSummaryResponse(
+                                501L,
+                                InterviewSessionStatus.COMPLETED,
+                                InterviewSessionNextAction.VIEW_REPORT,
+                                "Backend Java",
+                                "Minh profile",
+                                "vi",
+                                30,
+                                InterviewerStyle.PROFESSIONAL,
+                                InterviewSessionMode.TURN_BASED,
+                                new BigDecimal("74.00"),
+                                new BigDecimal("75.00"),
+                                new BigDecimal("70.00"),
+                                NOW,
+                                NOW.plusSeconds(1800),
+                                InterviewEndReason.AI_COMPLETED,
+                                NOW.plusSeconds(1200),
+                                NOW.plusSeconds(1210),
+                                NOW.minusSeconds(60),
+                                NOW.plusSeconds(1210))),
+                        0,
+                        20,
+                        1,
+                        1));
+
+        mockMvc.perform(get("/api/interview-sessions")
+                        .with(user(userDetails()))
+                        .param("keyword", "backend")
+                        .param("status", "COMPLETED")
+                        .param("mode", "TURN_BASED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(501))
+                .andExpect(jsonPath("$.items[0].nextAction").value("VIEW_REPORT"))
+                .andExpect(jsonPath("$.items[0].overallScore").value(74.0))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test

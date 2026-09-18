@@ -7,11 +7,13 @@ import com.baseProject.myBaseProject.dto.profile.ProfileProjectDto;
 import com.baseProject.myBaseProject.dto.profile.ProfileSkillDto;
 import com.baseProject.myBaseProject.dto.profile.ProfileSummaryResponse;
 import com.baseProject.myBaseProject.dto.profile.ProfileUpdateRequest;
+import com.baseProject.myBaseProject.dto.profile.CreateCandidateProfileRequest;
 import com.baseProject.myBaseProject.entity.CandidateProfile;
 import com.baseProject.myBaseProject.entity.CvDocument;
 import com.baseProject.myBaseProject.entity.ProfileEducation;
 import com.baseProject.myBaseProject.entity.ProfileProject;
 import com.baseProject.myBaseProject.entity.ProfileSkill;
+import com.baseProject.myBaseProject.entity.UserAccount;
 import com.baseProject.myBaseProject.enums.ProfileSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -62,6 +64,23 @@ public class ProfileMapper {
                 .targetPosition(clamp(result.targetPosition(), 150))
                 .seniorityLevel(clamp(result.seniorityLevel(), 30))
                 .source(ProfileSource.AUTO_PARSED)
+                .createdAt(createdAt)
+                .updatedAt(createdAt)
+                .build();
+    }
+
+    public CandidateProfile newManualProfile(UserAccount user,
+                                             CreateCandidateProfileRequest request,
+                                             Instant createdAt) {
+        return CandidateProfile.builder()
+                .user(user)
+                .name(request.name().trim())
+                .headline(blankToNull(request.headline()))
+                .summary(blankToNull(request.summary()))
+                .yearsExperience(request.yearsExperience())
+                .targetPosition(blankToNull(request.targetPosition()))
+                .seniorityLevel(blankToNull(request.seniorityLevel()))
+                .source(ProfileSource.MANUAL)
                 .createdAt(createdAt)
                 .updatedAt(createdAt)
                 .build();
@@ -167,8 +186,8 @@ public class ProfileMapper {
                 profile.getId(),
                 profile.getVersion(),
                 displayName(profile),
-                profile.getCvDocument().getId(),
-                profile.getCvDocument().getOriginalFilename(),
+                profile.getCvDocument() == null ? null : profile.getCvDocument().getId(),
+                profile.getCvDocument() == null ? null : profile.getCvDocument().getOriginalFilename(),
                 profile.getHeadline(),
                 profile.getSummary(),
                 profile.getYearsExperience(),
@@ -191,8 +210,8 @@ public class ProfileMapper {
                 profile.getId(),
                 profile.getVersion(),
                 displayName(profile),
-                profile.getCvDocument().getId(),
-                profile.getCvDocument().getOriginalFilename(),
+                profile.getCvDocument() == null ? null : profile.getCvDocument().getId(),
+                profile.getCvDocument() == null ? null : profile.getCvDocument().getOriginalFilename(),
                 profile.getHeadline(),
                 profile.getTargetPosition(),
                 profile.getSeniorityLevel(),
@@ -248,7 +267,9 @@ public class ProfileMapper {
         profile.setYearsExperience(request.yearsExperience());
         profile.setTargetPosition(blankToNull(request.targetPosition()));
         profile.setSeniorityLevel(blankToNull(request.seniorityLevel()));
-        profile.setSource(ProfileSource.USER_EDITED);
+        if (profile.getSource() != ProfileSource.MANUAL) {
+            profile.setSource(ProfileSource.USER_EDITED);
+        }
         profile.setUpdatedAt(updatedAt);
     }
 
@@ -373,7 +394,8 @@ public class ProfileMapper {
             name = blankToNull(profile.getHeadline());
         }
         if (name == null) {
-            name = withoutPdfExtension(profile.getCvDocument().getOriginalFilename());
+            name = profile.getCvDocument() == null
+                    ? null : withoutPdfExtension(profile.getCvDocument().getOriginalFilename());
         }
         return name == null ? "Candidate profile" : name;
     }

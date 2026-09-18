@@ -111,7 +111,7 @@ class InterviewSessionServiceImplTest {
         fixture.profile.setConfirmedAt(null);
         when(fixture.templates.findAccessibleForSession(101L, USER_ID))
                 .thenReturn(Optional.of(fixture.template));
-        when(fixture.profiles.findByIdAndUserIdAndCvDocumentActiveTrue(35L, USER_ID))
+        when(fixture.profiles.findAvailableByIdAndUserId(35L, USER_ID))
                 .thenReturn(Optional.of(fixture.profile));
 
         assertThatThrownBy(() -> fixture.service.create(
@@ -140,6 +140,39 @@ class InterviewSessionServiceImplTest {
                 InterviewSessionStatus.PREPARING,
                 "Admin retried interview preparation",
                 com.baseProject.myBaseProject.enums.InterviewTransitionActor.ADMIN,
+                NOW);
+    }
+
+    @Test
+    void cancelsReadySessionIdempotentlyBeforeItStarts() {
+        Fixture fixture = new Fixture();
+        InterviewSession session = fixture.session(501L, InterviewSessionStatus.READY);
+        when(fixture.sessions.findOwnedByIdForUpdate(501L, USER_ID))
+                .thenReturn(Optional.of(session));
+        when(fixture.sessions.findByIdAndUserId(501L, USER_ID))
+                .thenReturn(Optional.of(session));
+
+        var response = fixture.service.cancel(USER_ID, 501L);
+
+        assertThat(response.status()).isEqualTo(InterviewSessionStatus.CANCELLED);
+        assertThat(session.getEndReason())
+                .isEqualTo(com.baseProject.myBaseProject.enums.InterviewEndReason.USER_CANCELLED);
+        assertThat(session.getEndedAt()).isEqualTo(NOW);
+        verify(fixture.transitionRecorder).record(
+                session,
+                InterviewSessionStatus.READY,
+                InterviewSessionStatus.CANCELLED,
+                "User cancelled interview before it started",
+                com.baseProject.myBaseProject.enums.InterviewTransitionActor.USER,
+                NOW);
+
+        fixture.service.cancel(USER_ID, 501L);
+        verify(fixture.transitionRecorder).record(
+                session,
+                InterviewSessionStatus.READY,
+                InterviewSessionStatus.CANCELLED,
+                "User cancelled interview before it started",
+                com.baseProject.myBaseProject.enums.InterviewTransitionActor.USER,
                 NOW);
     }
 
@@ -180,7 +213,7 @@ class InterviewSessionServiceImplTest {
                     .thenReturn(Optional.empty());
             when(templates.findAccessibleForSession(101L, USER_ID))
                     .thenReturn(Optional.of(template));
-            when(profiles.findByIdAndUserIdAndCvDocumentActiveTrue(35L, USER_ID))
+            when(profiles.findAvailableByIdAndUserId(35L, USER_ID))
                     .thenReturn(Optional.of(profile));
             when(users.getReferenceById(USER_ID)).thenReturn(user);
             when(snapshotFactory.create(template, profile)).thenReturn(

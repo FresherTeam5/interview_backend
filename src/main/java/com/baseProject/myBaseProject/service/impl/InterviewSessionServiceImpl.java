@@ -163,6 +163,34 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
                 "Admin retried interview preparation");
     }
 
+    @Override
+    public InterviewSessionStatusResponse cancel(Long userId, Long sessionId) {
+        transactions.executeWithoutResult(status -> {
+            InterviewSession session = sessions.findOwnedByIdForUpdate(sessionId, userId)
+                    .orElseThrow(() -> new DomainException(
+                            ErrorCode.INTERVIEW_SESSION_NOT_FOUND));
+            InterviewSessionStatus previous = session.getStatus();
+            if (previous == InterviewSessionStatus.CANCELLED) {
+                return;
+            }
+            if (previous != InterviewSessionStatus.PREPARING
+                    && previous != InterviewSessionStatus.READY
+                    && previous != InterviewSessionStatus.PREPARATION_FAILED) {
+                throw new DomainException(ErrorCode.INTERVIEW_SESSION_NOT_CANCELLABLE);
+            }
+            Instant now = clock.instant();
+            session.cancel(now);
+            transitionRecorder.record(
+                    session,
+                    previous,
+                    InterviewSessionStatus.CANCELLED,
+                    "User cancelled interview before it started",
+                    InterviewTransitionActor.USER,
+                    now);
+        });
+        return get(userId, sessionId);
+    }
+
     private void retryPreparation(
             Long ownerId,
             Long sessionId,
@@ -221,7 +249,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         }
 
         CandidateProfile profile = profiles
-                .findByIdAndUserIdAndCvDocumentActiveTrue(request.profileId(), userId)
+                .findAvailableByIdAndUserId(request.profileId(), userId)
                 .orElseThrow(() -> new DomainException(ErrorCode.PROFILE_NOT_FOUND));
         if (!profile.isConfirmed()) {
             throw new DomainException(ErrorCode.PROFILE_CONFIRM_REQUIRED);

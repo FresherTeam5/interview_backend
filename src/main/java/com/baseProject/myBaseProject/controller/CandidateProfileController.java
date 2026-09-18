@@ -4,6 +4,7 @@ import com.baseProject.myBaseProject.config.OpenApiConfig;
 import com.baseProject.myBaseProject.dto.profile.CandidateProfileResponse;
 import com.baseProject.myBaseProject.dto.profile.ProfileSummaryResponse;
 import com.baseProject.myBaseProject.dto.profile.ProfileUpdateRequest;
+import com.baseProject.myBaseProject.dto.profile.CreateCandidateProfileRequest;
 import com.baseProject.myBaseProject.security.CustomUserDetails;
 import com.baseProject.myBaseProject.security.authorization.CurrentUser;
 import com.baseProject.myBaseProject.security.authorization.IsUser;
@@ -32,6 +33,15 @@ import java.util.List;
 public class CandidateProfileController {
 
     private final CandidateProfileService candidateProfileService;
+
+    @PostMapping
+    @Operation(summary = "Tạo hồ sơ ứng viên thủ công",
+            description = "Tạo hồ sơ không cần tải CV; hồ sơ có thể chỉnh sửa và xác nhận như hồ sơ được phân tích từ CV.")
+    public CandidateProfileResponse createManual(
+            @CurrentUser CustomUserDetails currentUser,
+            @Valid @RequestBody CreateCandidateProfileRequest request) {
+        return candidateProfileService.createManual(currentUser.getId(), request);
+    }
 
     @GetMapping
     @Operation(

@@ -53,9 +53,19 @@ public class UserAccount {
     @Builder.Default
     private boolean enabled = true;
 
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
+    @Column(name = "deletion_requested_at")
+    private Instant deletionRequestedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    public boolean isEmailVerified() {
+        return emailVerifiedAt != null;
+    }
 }

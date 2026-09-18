@@ -60,6 +60,17 @@ public class InterviewConversationController {
         return service.answer(user.getId(), id, idempotencyKey, request);
     }
 
+    @PostMapping("/{id}/turns/{turnId}/retry")
+    @Operation(
+            summary = "Thử lại lượt trả lời bị lỗi",
+            description = "Dùng lại nội dung và idempotency key của candidate turn FAILED; không tạo câu trả lời trùng.")
+    public InterviewAnswerResponse retryFailedAnswer(
+            @CurrentUser CustomUserDetails user,
+            @PathVariable Long id,
+            @PathVariable Long turnId) {
+        return service.retryFailedAnswer(user.getId(), id, turnId);
+    }
+
     @PostMapping("/{id}/finish")
     @Operation(
             summary = "Kết thúc phỏng vấn",

@@ -39,8 +39,8 @@ public class InterviewTemplate {
     @JoinColumn(name = "owner_id", nullable = false, updatable = false)
     private UserAccount owner;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "source_job_description_id", nullable = false, updatable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_job_description_id", updatable = false)
     private JobDescriptionDocument sourceJobDescription;
 
     @Column(nullable = false, length = 200)

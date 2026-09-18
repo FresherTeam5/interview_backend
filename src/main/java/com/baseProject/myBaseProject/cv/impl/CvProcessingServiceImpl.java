@@ -12,6 +12,8 @@ import com.baseProject.myBaseProject.exception.ErrorCode;
 import com.baseProject.myBaseProject.repository.CvDocumentRepository;
 import com.baseProject.myBaseProject.repository.CvParseResultRepository;
 import com.baseProject.myBaseProject.service.CandidateProfileService;
+import com.baseProject.myBaseProject.service.NotificationService;
+import com.baseProject.myBaseProject.enums.UserNotificationType;
 import com.baseProject.myBaseProject.storage.StorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -36,6 +38,7 @@ public class CvProcessingServiceImpl implements CvProcessingService {
     private final StorageService storageService;
     private final CvParsingService cvParsingService;
     private final CandidateProfileService candidateProfileService;
+    private final NotificationService notifications;
     private final ChatModel chatModel;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -46,6 +49,7 @@ public class CvProcessingServiceImpl implements CvProcessingService {
                                    StorageService storageService,
                                    CvParsingService cvParsingService,
                                    CandidateProfileService candidateProfileService,
+                                   NotificationService notifications,
                                    ChatModel chatModel,
                                    ObjectMapper objectMapper,
                                    Clock clock,
@@ -55,6 +59,7 @@ public class CvProcessingServiceImpl implements CvProcessingService {
         this.storageService = storageService;
         this.cvParsingService = cvParsingService;
         this.candidateProfileService = candidateProfileService;
+        this.notifications = notifications;
         this.chatModel = chatModel;
         this.objectMapper = objectMapper;
         this.clock = clock;
@@ -64,11 +69,13 @@ public class CvProcessingServiceImpl implements CvProcessingService {
     @Override
     @Async(AsyncConfig.CV_PARSE_EXECUTOR)
     public void processAsync(Long cvDocumentId) {
+        Long userId = null;
         try {
             WorkItem workItem = claim(cvDocumentId);
             if (workItem == null) {
                 return;
             }
+            userId = workItem.userId();
 
             byte[] content = storageService.download(workItem.storageKey());
             long startedAt = System.currentTimeMillis();
@@ -77,9 +84,18 @@ public class CvProcessingServiceImpl implements CvProcessingService {
                     System.currentTimeMillis() - startedAt);
 
             persistResult(cvDocumentId, extraction, durationMs);
+            notifySafely(userId, UserNotificationType.CV_READY,
+                    "CV analysis completed",
+                    "Your CV has been analyzed and the candidate profile is ready.", cvDocumentId);
         } catch (RuntimeException e) {
             log.error("Background CV processing failed, cvDocumentId={}", cvDocumentId, e);
-            markFailed(cvDocumentId, ErrorCode.CV_PARSE_FAILED.getDefaultMessage());
+            Long failedUserId = markFailed(
+                    cvDocumentId, ErrorCode.CV_PARSE_FAILED.getDefaultMessage());
+            if (failedUserId != null) {
+                notifySafely(failedUserId, UserNotificationType.CV_FAILED,
+                        "CV analysis failed",
+                        "We could not analyze your CV. You can retry from the CV page.", cvDocumentId);
+            }
         }
     }
 
@@ -98,7 +114,7 @@ public class CvProcessingServiceImpl implements CvProcessingService {
             }
 
             document.markParsing();
-            return new WorkItem(document.getStorageKey());
+            return new WorkItem(document.getStorageKey(), document.getUser().getId());
         });
     }
 
@@ -139,17 +155,22 @@ public class CvProcessingServiceImpl implements CvProcessingService {
         });
     }
 
-    private void markFailed(Long cvDocumentId, String statusMessage) {
+    private Long markFailed(Long cvDocumentId, String statusMessage) {
         try {
-            transactionTemplate.executeWithoutResult(status ->
-                    cvDocumentRepository.findById(cvDocumentId).ifPresent(document -> {
+            return transactionTemplate.execute(status -> {
+                CvDocument document = cvDocumentRepository.findById(cvDocumentId).orElse(null);
+                if (document != null) {
                         // Không để lỗi đến muộn ghi đè một kết quả PARSED đã commit thành công.
                         if (document.getStatus() != CvDocumentStatus.PARSED) {
                             document.markFailed(statusMessage);
+                            return document.getUser().getId();
                         }
-                    }));
+                }
+                return null;
+            });
         } catch (RuntimeException e) {
             log.error("Cannot persist FAILED status for cvDocumentId={}", cvDocumentId, e);
+            return null;
         }
     }
 
@@ -161,6 +182,16 @@ public class CvProcessingServiceImpl implements CvProcessingService {
         }
     }
 
-    private record WorkItem(String storageKey) {
+    private void notifySafely(Long userId, UserNotificationType type,
+                              String title, String message, Long resourceId) {
+        try {
+            notifications.create(userId, type, title, message, "CV_DOCUMENT", resourceId);
+        } catch (RuntimeException exception) {
+            log.warn("Cannot create CV processing notification, cvDocumentId={}",
+                    resourceId, exception);
+        }
+    }
+
+    private record WorkItem(String storageKey, Long userId) {
     }
 }

@@ -14,20 +14,35 @@ import java.util.Optional;
 
 public interface CandidateProfileRepository extends JpaRepository<CandidateProfile, Long> {
 
-    @EntityGraph(attributePaths = "cvDocument")
-    List<CandidateProfile> findByUserIdAndCvDocumentActiveTrueOrderByCreatedAtDesc(Long userId);
+    @Query("""
+            SELECT profile
+            FROM CandidateProfile profile
+            LEFT JOIN FETCH profile.cvDocument document
+            WHERE profile.user.id = :userId
+              AND (document IS NULL OR document.active = true)
+            ORDER BY profile.createdAt DESC
+            """)
+    List<CandidateProfile> findAvailableByUserId(@Param("userId") Long userId);
 
-    @EntityGraph(attributePaths = "cvDocument")
-    Optional<CandidateProfile> findByIdAndUserIdAndCvDocumentActiveTrue(Long id, Long userId);
+    @Query("""
+            SELECT profile
+            FROM CandidateProfile profile
+            LEFT JOIN FETCH profile.cvDocument document
+            WHERE profile.id = :id
+              AND profile.user.id = :userId
+              AND (document IS NULL OR document.active = true)
+            """)
+    Optional<CandidateProfile> findAvailableByIdAndUserId(
+            @Param("id") Long id, @Param("userId") Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT profile
             FROM CandidateProfile profile
-            JOIN FETCH profile.cvDocument document
+            LEFT JOIN FETCH profile.cvDocument document
             WHERE profile.id = :profileId
               AND profile.user.id = :userId
-              AND document.active = true
+              AND (document IS NULL OR document.active = true)
             """)
     Optional<CandidateProfile> findActiveOwnedByIdForUpdate(
             @Param("profileId") Long profileId,

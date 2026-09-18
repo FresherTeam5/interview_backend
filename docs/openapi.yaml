@@ -1140,7 +1140,7 @@ components:
       properties:
         fullName: {type: string, minLength: 1, maxLength: 150}
         email: {type: string, format: email, minLength: 1, maxLength: 150}
-        password: {type: string, minLength: 6, maxLength: 100, writeOnly: true}
+        password: {type: string, minLength: 8, maxLength: 100, writeOnly: true}
     LoginRequest:
       type: object
       required: [email, password]

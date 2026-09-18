@@ -29,6 +29,9 @@ public final class Message {
     public static final String INTERVIEW_TURN_OUT_OF_SEQUENCE = "Interview answer does not match the current interviewer turn";
     public static final String INTERVIEW_TURN_IDEMPOTENCY_CONFLICT = "Idempotency key was already used for a different answer";
     public static final String INTERVIEW_TURN_PROCESSING = "The interviewer is already processing this answer";
+    public static final String INTERVIEW_TURN_NOT_RETRYABLE = "Only a failed candidate turn can be retried";
+    public static final String INTERVIEW_SESSION_NOT_CANCELLABLE =
+            "Only an interview that has not started can be cancelled";
     public static final String PROFILE_CONFIRM_REQUIRED = "Confirm the candidate profile before creating an interview session";
 
     // Speech
@@ -89,6 +92,15 @@ public final class Message {
     public static final String INVALID_GOOGLE_TOKEN = "Google ID token is invalid or has expired";
     public static final String GOOGLE_EMAIL_NOT_VERIFIED = "This Google account has no verified email";
     public static final String GOOGLE_LOGIN_NOT_CONFIGURED = "Google login is not configured on this server";
+    public static final String ACCOUNT_TOKEN_INVALID = "Account token is invalid or expired";
+    public static final String EMAIL_ALREADY_VERIFIED = "Email address is already verified";
+    public static final String CURRENT_PASSWORD_INVALID = "Current password is invalid";
+    public static final String PASSWORD_NOT_CONFIGURED =
+            "This account has no password; use password reset to create one";
+    public static final String DEVICE_SESSION_NOT_FOUND = "Login session not found";
+    public static final String ACCOUNT_DELETION_NOT_PENDING = "Account deletion is not pending";
+    public static final String ACCOUNT_DELETION_ADMIN_FORBIDDEN =
+            "Administrator accounts cannot be deleted through this endpoint";
 
     // AI & CV parsing
     public static final String AI_SERVICE_UNAVAILABLE = "AI service is temporarily unavailable";
@@ -116,4 +128,11 @@ public final class Message {
     public static final String PROFILE_ITEM_NOT_FOUND = "Profile item not found";
     public static final String DUPLICATE_SKILL_NAME = "Profile contains duplicate skill names";
     public static final String PROFILE_VERSION_CONFLICT = "Candidate profile was changed by another request; reload it and try again";
+    public static final String NOTIFICATION_NOT_FOUND = "Notification not found";
+    public static final String INTERVIEW_FEEDBACK_NOT_FOUND = "Interview feedback not found";
+    public static final String INTERVIEW_FEEDBACK_NOT_AVAILABLE =
+            "Feedback is available after the interview report is completed";
+    public static final String SUPPORT_TICKET_NOT_FOUND = "Support ticket not found";
+    public static final String SUPPORT_TICKET_CONTEXT_INVALID =
+            "Support ticket session or turn does not belong to the current user";
 }

@@ -9,11 +9,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
+
+    List<RefreshToken> findByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByIssuedAtDesc(
+            Long userId, Instant now);
+
+    boolean existsByUserIdAndFamilyId(Long userId, String familyId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM RefreshToken t WHERE t.tokenHash = :tokenHash")
@@ -27,6 +33,19 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
                AND t.revokedAt IS NULL
             """)
     int revokeFamily(@Param("familyId") String familyId, @Param("revokedAt") Instant revokedAt);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE RefreshToken t
+               SET t.revokedAt = :revokedAt
+             WHERE t.user.id = :userId
+               AND t.familyId = :familyId
+               AND t.revokedAt IS NULL
+            """)
+    int revokeFamilyForUser(
+            @Param("userId") Long userId,
+            @Param("familyId") String familyId,
+            @Param("revokedAt") Instant revokedAt);
 
     @Modifying(flushAutomatically = true)
     @Query("""

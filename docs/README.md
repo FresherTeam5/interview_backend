@@ -8,6 +8,7 @@ Thư mục này là contract tích hợp frontend của backend `my-interview`. 
 |---|---|
 | [api-conventions.md](./api-conventions.md) | Base URL, auth header/cookie, format lỗi, refresh token, retry và quy ước dữ liệu chung |
 | [auth-api.md](./auth-api.md) | Đăng ký, đăng nhập mật khẩu/Google, lấy user hiện tại, refresh, logout |
+| [user-production-api.md](./user-production-api.md) | Lịch sử/tiến bộ, tài khoản, recovery, discovery, notification, feedback và support sau MVP |
 | [admin-api.md](./admin-api.md) | Dashboard, quản lý tài khoản và vận hành session dành cho admin |
 | [cv-profile-api.md](./cv-profile-api.md) | **Một luồng CV + Candidate Profile**: upload, poll parse, review/edit, confirm |
 | [jd-template-api.md](./jd-template-api.md) | **Một luồng JD + Interview Template**: nhập JD, poll AI analysis, edit, confirm, publish |
@@ -15,7 +16,7 @@ Thư mục này là contract tích hợp frontend của backend `my-interview`. 
 | [speech-api.md](./speech-api.md) | Push-to-talk STT, audio interviewer, cấu hình ElevenLabs và cách đổi speech provider |
 | [realtime-api.md](./realtime-api.md) | Gemini Live grant, event/transcript, resume, fallback và browser client mẫu |
 | [frontend-implementation-guide.md](./frontend-implementation-guide.md) | Kiến trúc client, route/screen, state machine, query invalidation và checklist hoàn thiện |
-| [openapi.yaml](./openapi.yaml) | OpenAPI 3.0 để sinh type/client hoặc nạp vào công cụ API |
+| [openapi.yaml](./openapi.yaml) | OpenAPI 3.0 cho luồng MVP; các API sau MVP dùng contract bổ sung và spec runtime `/v3/api-docs` |
 | [database-migrations.md](./database-migrations.md) | Cách Liquibase quản lý schema, tiếp quản database cũ và thêm migration mới |
 
 ## Luồng sản phẩm đầy đủ
@@ -114,9 +115,9 @@ Thứ tự API tối thiểu cho happy path:
 | GET | `/api/interview-sessions/{id}/report` | Bearer, owner | Trạng thái scoring hoặc report |
 | POST | `/api/interview-sessions/{id}/scoring/retry` | Bearer, owner | `202`, retry scoring |
 
-## Giới hạn contract frontend cần biết
+## Lưu ý contract frontend
 
-- Backend hiện **không có API list interview sessions dành cho user**. Frontend phía ứng viên chỉ có thể mở lại session khi đã giữ `sessionId` cục bộ hoặc nhận ID từ nơi khác; API list dưới `/api/admin` không dùng cho luồng này.
+- Lịch sử session, resume action và progress đã có dưới `GET /api/interview-sessions` và `/progress`.
 - CORS đã cho phép `Idempotency-Key`; production cần cấu hình đúng frontend origin bằng `CORS_ALLOWED_ORIGINS`.
-- Không có endpoint cancel session `PREPARING`/`READY`, không có endpoint tạo profile thủ công khi chưa upload CV, và không có endpoint clone template đã confirm.
 - Mọi API lấy resource theo ID đều kiểm tra owner hoặc visibility; frontend phải coi `404` là resource không tồn tại hoặc không có quyền xem, không suy luận owner từ ID.
+- Contract đầy đủ của các phần sau MVP nằm trong [user-production-api.md](./user-production-api.md); Swagger runtime ở `/swagger-ui.html` và `/v3/api-docs` được sinh trực tiếp từ controller hiện tại.

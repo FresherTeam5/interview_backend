@@ -52,6 +52,7 @@ public class InterviewSessionCloser {
             case AI_COMPLETED -> "Interviewer completed interview";
             case TIME_EXPIRED -> "Interview duration reached";
             case CANDIDATE_FINISHED -> "User ended interview";
+            case USER_CANCELLED -> "User cancelled interview";
             case SYSTEM_TERMINATED -> "System terminated interview";
         };
     }

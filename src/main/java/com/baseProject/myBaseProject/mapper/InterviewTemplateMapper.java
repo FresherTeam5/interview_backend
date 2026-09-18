@@ -14,7 +14,7 @@ public class InterviewTemplateMapper {
 
     public InterviewTemplateResponse toResponse(InterviewTemplate template) {
         return new InterviewTemplateResponse(
-                template.getId(), template.getSourceJobDescription().getId(), template.getTitle(),
+                template.getId(), sourceId(template), template.getTitle(),
                 template.getJobTitle(), template.getTargetSeniority(),
                 analysisJsonMapper.fromJson(template.getContentJson()), template.isConfirmed(),
                 template.getConfirmedAt(), template.isPublished(), template.getPublishedAt(),
@@ -24,8 +24,13 @@ public class InterviewTemplateMapper {
 
     public InterviewTemplateSummaryResponse toSummary(InterviewTemplate template) {
         return new InterviewTemplateSummaryResponse(
-                template.getId(), template.getSourceJobDescription().getId(), template.getTitle(),
+                template.getId(), sourceId(template), template.getTitle(),
                 template.getJobTitle(), template.getTargetSeniority(), template.isConfirmed(),
                 template.isPublished(), template.getArchivedAt(), template.getUpdatedAt());
+    }
+
+    private Long sourceId(InterviewTemplate template) {
+        return template.getSourceJobDescription() == null
+                ? null : template.getSourceJobDescription().getId();
     }
 }

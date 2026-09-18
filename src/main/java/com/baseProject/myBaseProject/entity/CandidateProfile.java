@@ -46,8 +46,8 @@ public class CandidateProfile {
     @JoinColumn(name = "user_id", nullable = false, updatable = false)
     private UserAccount user;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "cv_document_id", nullable = false, unique = true, updatable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cv_document_id", unique = true, updatable = false)
     private CvDocument cvDocument;
 
     @Column(nullable = false, length = 150)

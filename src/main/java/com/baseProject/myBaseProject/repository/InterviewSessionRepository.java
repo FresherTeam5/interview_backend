@@ -51,6 +51,47 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
 
     long countByUserIdAndStatus(Long userId, InterviewSessionStatus status);
 
+    long countByUserIdAndCreatedAtBetween(Long userId, Instant createdFrom, Instant createdTo);
+
+    long countByUserIdAndStatusAndCreatedAtBetween(
+            Long userId,
+            InterviewSessionStatus status,
+            Instant createdFrom,
+            Instant createdTo);
+
+    @Query(value = """
+            SELECT session
+            FROM InterviewSession session
+            WHERE session.user.id = :userId
+              AND (:keyword IS NULL
+                   OR LOWER(session.templateTitleSnapshot) LIKE :keyword
+                   OR LOWER(session.profileNameSnapshot) LIKE :keyword)
+              AND (:sessionStatus IS NULL OR session.status = :sessionStatus)
+              AND (:sessionMode IS NULL OR session.mode = :sessionMode)
+              AND (:createdFrom IS NULL OR session.createdAt >= :createdFrom)
+              AND (:createdTo IS NULL OR session.createdAt <= :createdTo)
+            """,
+            countQuery = """
+                    SELECT COUNT(session)
+                    FROM InterviewSession session
+                    WHERE session.user.id = :userId
+                      AND (:keyword IS NULL
+                           OR LOWER(session.templateTitleSnapshot) LIKE :keyword
+                           OR LOWER(session.profileNameSnapshot) LIKE :keyword)
+                      AND (:sessionStatus IS NULL OR session.status = :sessionStatus)
+                      AND (:sessionMode IS NULL OR session.mode = :sessionMode)
+                      AND (:createdFrom IS NULL OR session.createdAt >= :createdFrom)
+                      AND (:createdTo IS NULL OR session.createdAt <= :createdTo)
+                    """)
+    Page<InterviewSession> searchForUser(
+            @Param("userId") Long userId,
+            @Param("keyword") String keyword,
+            @Param("sessionStatus") InterviewSessionStatus status,
+            @Param("sessionMode") InterviewSessionMode mode,
+            @Param("createdFrom") Instant createdFrom,
+            @Param("createdTo") Instant createdTo,
+            Pageable pageable);
+
     @Query("""
             SELECT session.status AS status, COUNT(session) AS total
             FROM InterviewSession session

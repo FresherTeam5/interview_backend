@@ -10,6 +10,7 @@ import com.baseProject.myBaseProject.entity.InterviewFocusAreaResult;
 import com.baseProject.myBaseProject.entity.InterviewSession;
 import com.baseProject.myBaseProject.enums.InterviewSessionStatus;
 import com.baseProject.myBaseProject.enums.InterviewTransitionActor;
+import com.baseProject.myBaseProject.enums.UserNotificationType;
 import com.baseProject.myBaseProject.exception.DomainException;
 import com.baseProject.myBaseProject.exception.ErrorCode;
 import com.baseProject.myBaseProject.interview.InterviewScoringEngine;
@@ -23,6 +24,7 @@ import com.baseProject.myBaseProject.repository.InterviewAssessmentRepository;
 import com.baseProject.myBaseProject.repository.InterviewFocusAreaRepository;
 import com.baseProject.myBaseProject.repository.InterviewFocusAreaResultRepository;
 import com.baseProject.myBaseProject.repository.InterviewSessionRepository;
+import com.baseProject.myBaseProject.service.NotificationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.scheduling.annotation.Async;
@@ -54,6 +56,7 @@ public class InterviewScoringServiceImpl implements InterviewScoringService {
     private final ObjectMapper objectMapper;
     private final ChatModel chatModel;
     private final Clock clock;
+    private final NotificationService notifications;
     private final TransactionTemplate transactions;
     private final TransactionTemplate failureTransactions;
 
@@ -69,6 +72,7 @@ public class InterviewScoringServiceImpl implements InterviewScoringService {
             ObjectMapper objectMapper,
             ChatModel chatModel,
             Clock clock,
+            NotificationService notifications,
             PlatformTransactionManager transactionManager) {
         this.sessions = sessions;
         this.assessments = assessments;
@@ -81,6 +85,7 @@ public class InterviewScoringServiceImpl implements InterviewScoringService {
         this.objectMapper = objectMapper;
         this.chatModel = chatModel;
         this.clock = clock;
+        this.notifications = notifications;
         this.transactions = new TransactionTemplate(transactionManager);
         this.failureTransactions = new TransactionTemplate(transactionManager);
 
@@ -101,7 +106,13 @@ public class InterviewScoringServiceImpl implements InterviewScoringService {
             InterviewAssessmentResult result = engine.assess(context);
             InterviewScoreCalculation calculation = calculator.calculate(context, result);
 
-            persist(sessionId, result, calculation);
+            Long userId = persist(sessionId, result, calculation);
+            if (userId != null) {
+                notifySafely(userId, UserNotificationType.INTERVIEW_REPORT_READY,
+                        "Interview report is ready",
+                        "Your interview has been scored and the detailed report is now available.",
+                        sessionId);
+            }
         } catch (DomainException exception) {
             log.warn("Interview scoring failed, sessionId={}, code={}, reason={}",
                     sessionId, exception.getCode(), exception.getMessage());
@@ -132,18 +143,18 @@ public class InterviewScoringServiceImpl implements InterviewScoringService {
         return Boolean.TRUE.equals(claimed);
     }
 
-    private void persist(
+    private Long persist(
             Long sessionId,
             InterviewAssessmentResult result,
             InterviewScoreCalculation calculation) {
         Instant now = clock.instant();
-        transactions.executeWithoutResult(status -> {
+        return transactions.execute(status -> {
 
             // bỏ kết quả nếu session đã bị chuyển trạng thái
             InterviewSession session = sessions.findByIdForUpdate(sessionId).orElse(null);
             if (session == null || session.getStatus() != InterviewSessionStatus.SCORING
                     || session.getScoringStartedAt() == null) {
-                return;
+                return null;
             }
 
             InterviewAssessment assessment = assessments.save(InterviewAssessment.builder()
@@ -190,16 +201,17 @@ public class InterviewScoringServiceImpl implements InterviewScoringService {
                     "Interview scoring completed",
                     InterviewTransitionActor.SYSTEM,
                     now);
+            return session.getUser() == null ? null : session.getUser().getId();
         });
     }
 
     private void markFailed(Long sessionId, ErrorCode errorCode) {
         try {
             Instant now = clock.instant();
-            failureTransactions.executeWithoutResult(status -> {
+            Long userId = failureTransactions.execute(status -> {
                 InterviewSession session = sessions.findByIdForUpdate(sessionId).orElse(null);
                 if (session == null || session.getStatus() != InterviewSessionStatus.SCORING) {
-                    return;
+                    return null;
                 }
                 session.markScoringFailed(
                         errorCode.name(),
@@ -213,10 +225,28 @@ public class InterviewScoringServiceImpl implements InterviewScoringService {
                         "Interview scoring failed",
                         InterviewTransitionActor.SYSTEM,
                         now);
+                return session.getUser() == null ? null : session.getUser().getId();
             });
+            if (userId != null) {
+                notifySafely(userId, UserNotificationType.INTERVIEW_REPORT_FAILED,
+                        "Interview report failed",
+                        "We could not generate your interview report. You can retry scoring from the interview page.",
+                        sessionId);
+            }
         } catch (RuntimeException persistenceError) {
             log.error("Cannot persist scoring failure, sessionId={}",
                     sessionId, persistenceError);
+        }
+    }
+
+    private void notifySafely(Long userId, UserNotificationType type,
+                              String title, String message, Long sessionId) {
+        try {
+            notifications.create(userId, type, title, message,
+                    "INTERVIEW_SESSION", sessionId);
+        } catch (RuntimeException exception) {
+            log.warn("Cannot create interview report notification, sessionId={}",
+                    sessionId, exception);
         }
     }
 }

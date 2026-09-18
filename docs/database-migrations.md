@@ -12,8 +12,8 @@ Các changeset baseline dùng precondition `MARK_RAN`. Khi chạy trên database
 
 ## Thêm migration mới
 
-1. Tạo file SQL mới trong `database_docs/migrations`, ví dụ `011-feature-name.sql`.
-2. Thêm một changeset mới ở cuối `db.changelog-master.yaml` và trỏ `sqlFile` tới `db/changelog/sql/011-feature-name.sql`.
+1. Tạo file SQL mới trong `database_docs/migrations`, ví dụ `016-feature-name.sql`.
+2. Thêm một changeset mới ở cuối `db.changelog-master.yaml` và trỏ `sqlFile` tới `db/changelog/sql/016-feature-name.sql`.
 3. Không sửa nội dung changeset đã chạy trên môi trường dùng chung vì Liquibase kiểm tra checksum.
 4. Chạy test hoặc khởi động ứng dụng trên một database trống để kiểm tra cả migration và Hibernate validation.
 

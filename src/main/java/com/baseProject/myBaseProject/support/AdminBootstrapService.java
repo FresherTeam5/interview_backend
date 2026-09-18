@@ -57,6 +57,7 @@ public class AdminBootstrapService {
                 .passwordHash(passwordEncoder.encode(credentials.password()))
                 .role(UserRole.ADMIN)
                 .enabled(true)
+                .emailVerifiedAt(now)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -105,8 +106,8 @@ public class AdminBootstrapService {
             String email,
 
             @NotBlank(message = "password is required")
-            @Size(min = 8, max = 100,
-                    message = "password must be 8-100 characters")
+            @Size(min = 12, max = 100,
+                    message = "password must be 12-100 characters")
             String password
     ) {
     }
