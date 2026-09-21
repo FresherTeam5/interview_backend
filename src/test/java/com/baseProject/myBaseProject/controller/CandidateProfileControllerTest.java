@@ -81,6 +81,16 @@ class CandidateProfileControllerTest {
     }
 
     @Test
+    void adminInheritsUserAccessAndCanListOwnProfiles() throws Exception {
+        when(candidateProfileService.list(3L)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/profiles").with(user(userDetails(UserRole.ADMIN, 3L))))
+                .andExpect(status().isOk());
+
+        verify(candidateProfileService).list(3L);
+    }
+
+    @Test
     void validUpdateDelegatesToProfileService() throws Exception {
         CandidateProfileResponse response = response(null);
         when(candidateProfileService.update(
@@ -169,11 +179,16 @@ class CandidateProfileControllerTest {
     }
 
     private CustomUserDetails userDetails() {
+        return userDetails(UserRole.USER, 4L);
+    }
+
+    private CustomUserDetails userDetails(UserRole role, Long id) {
         return new CustomUserDetails(UserAccount.builder()
-                .id(4L)
-                .email("candidate@example.com")
+                .id(id)
+                .email(role == UserRole.ADMIN
+                        ? "admin@example.com" : "candidate@example.com")
                 .passwordHash("password")
-                .role(UserRole.USER)
+                .role(role)
                 .enabled(true)
                 .build());
     }

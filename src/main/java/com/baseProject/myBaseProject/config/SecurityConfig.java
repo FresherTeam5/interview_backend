@@ -8,9 +8,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.authorization.AuthorizationManagerFactory;
+import org.springframework.security.authorization.DefaultAuthorizationManagerFactory;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -47,6 +51,22 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final RestSecurityExceptionHandler securityExceptionHandler;
     private final CorsProperties corsProperties;
+
+    @Bean
+    static RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.withDefaultRolePrefix()
+                .role("ADMIN").implies("USER")
+                .build();
+    }
+
+    @Bean
+    static <T> AuthorizationManagerFactory<T> authorizationManagerFactory(
+            RoleHierarchy roleHierarchy) {
+        DefaultAuthorizationManagerFactory<T> factory =
+                new DefaultAuthorizationManagerFactory<>();
+        factory.setRoleHierarchy(roleHierarchy);
+        return factory;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
