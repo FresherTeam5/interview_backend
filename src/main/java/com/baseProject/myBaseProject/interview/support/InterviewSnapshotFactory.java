@@ -30,9 +30,7 @@ public class InterviewSnapshotFactory {
     private final ObjectMapper objectMapper;
 
     public SnapshotBundle create(InterviewTemplate template, CandidateProfile profile) {
-        var source = jobAnalysisResults
-                .findByJobDescriptionId(template.getSourceJobDescription().getId())
-                .orElseThrow(() -> new DomainException(ErrorCode.JD_ANALYSIS_NOT_READY));
+        String jobDescriptionText = jobDescriptionText(template);
 
         // Lưu cả version và nội dung để ngữ cảnh phỏng vấn không đổi khi template được chỉnh sửa.
         InterviewTemplateSnapshot templateSnapshot = new InterviewTemplateSnapshot(
@@ -41,7 +39,7 @@ public class InterviewSnapshotFactory {
                 template.getJobTitle(), template.getTargetSeniority(),
                 template.getContentSchemaVersion(),
                 jobAnalysisJsonMapper.fromJson(template.getContentJson()),
-                source.getExtractedText());
+                jobDescriptionText);
 
         Long profileId = profile.getId();
 
@@ -61,6 +59,17 @@ public class InterviewSnapshotFactory {
         return new SnapshotBundle(
                 objectMapper.writeValueAsString(templateSnapshot),
                 objectMapper.writeValueAsString(profileSnapshot));
+    }
+
+    private String jobDescriptionText(InterviewTemplate template) {
+        if (template.getSourceJobDescription() == null) {
+            // Template clone giữ analysis trong contentJson nhưng không tham chiếu JD của owner cũ.
+            return null;
+        }
+        return jobAnalysisResults
+                .findByJobDescriptionId(template.getSourceJobDescription().getId())
+                .orElseThrow(() -> new DomainException(ErrorCode.JD_ANALYSIS_NOT_READY))
+                .getExtractedText();
     }
 
     public record SnapshotBundle(String templateJson, String profileJson) {

@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class InterviewSnapshotFactoryTest {
@@ -78,5 +79,45 @@ class InterviewSnapshotFactoryTest {
         assertThat(profileJson.get("name").asText()).isEqualTo("Minh profile");
         assertThat(profileJson.get("skills").get(0).get("name").asText())
                 .isEqualTo("Spring Boot");
+    }
+
+    @Test
+    void clonedTemplateSnapshotDoesNotRequireSourceJobDescription() {
+        JobDescriptionAnalysisResultRepository analyses =
+                mock(JobDescriptionAnalysisResultRepository.class);
+        ProfileEducationRepository educations = mock(ProfileEducationRepository.class);
+        ProfileSkillRepository skills = mock(ProfileSkillRepository.class);
+        ProfileProjectRepository projects = mock(ProfileProjectRepository.class);
+        JobAnalysisJsonMapper jobMapper = mock(JobAnalysisJsonMapper.class);
+        ProfileMapper profileMapper = mock(ProfileMapper.class);
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        InterviewTemplate template = new InterviewTemplate();
+        template.setId(102L);
+        template.setTitle("Cloned Backend Java");
+        template.setContentJson("{}");
+        template.setContentSchemaVersion("v2");
+        CandidateProfile profile = CandidateProfile.builder()
+                .id(36L)
+                .name("Admin profile")
+                .build();
+        JobAnalysis jobAnalysis = new JobAnalysis(
+                true, "vi", "Backend", "Junior", "IT", "Backend role", List.of());
+
+        when(jobMapper.fromJson("{}")).thenReturn(jobAnalysis);
+        when(educations.findByProfileIdOrderByDisplayOrderAsc(36L)).thenReturn(List.of());
+        when(skills.findByProfileIdOrderByDisplayOrderAsc(36L)).thenReturn(List.of());
+        when(projects.findByProfileIdOrderByDisplayOrderAsc(36L)).thenReturn(List.of());
+
+        InterviewSnapshotFactory factory = new InterviewSnapshotFactory(
+                analyses, educations, skills, projects, jobMapper, profileMapper, objectMapper);
+
+        var snapshots = factory.create(template, profile);
+        var templateJson = objectMapper.readTree(snapshots.templateJson());
+
+        assertThat(templateJson.get("analysis").get("jobTitle").asText())
+                .isEqualTo("Backend");
+        assertThat(templateJson.get("jobDescriptionText").isNull()).isTrue();
+        verifyNoInteractions(analyses);
     }
 }
