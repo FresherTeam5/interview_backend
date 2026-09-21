@@ -5,10 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 @SpringBootTest
@@ -37,6 +40,9 @@ class AdminRepositoryQueryTest {
 
     @Autowired
     private AdminAnalyticsService analytics;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @Test
     void optionalAdminFiltersExecuteWithNullValues() {
@@ -80,5 +86,23 @@ class AdminRepositoryQueryTest {
                 .doesNotThrowAnyException();
         assertThatCode(() -> analytics.timeSeries(now.minusSeconds(86_400), now))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void transitionActorConstraintsAllowAdmin() {
+        List<String> actorChecks = jdbc.queryForList("""
+                SELECT cc.check_clause
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.check_constraints cc
+                  ON cc.constraint_schema = tc.constraint_schema
+                 AND cc.constraint_name = tc.constraint_name
+                WHERE tc.constraint_schema = DATABASE()
+                  AND tc.table_name = 'interview_session_transitions'
+                  AND LOWER(cc.check_clause) LIKE '%actor%'
+                """, String.class);
+
+        assertThat(actorChecks)
+                .isNotEmpty()
+                .allMatch(clause -> clause.toUpperCase().contains("ADMIN"));
     }
 }

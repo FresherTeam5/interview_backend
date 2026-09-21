@@ -284,3 +284,27 @@ databaseChangeLog:
             path: db/changelog/sql/017-admin-operations-retention.sql
             splitStatements: true
             stripComments: true
+
+  - changeSet:
+      id: 018-drop-legacy-interview-transition-actor-check
+      author: my-interview-team
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 1
+            sql: >-
+              SELECT COUNT(*)
+              FROM information_schema.table_constraints tc
+              JOIN information_schema.check_constraints cc
+                ON cc.constraint_schema = tc.constraint_schema
+               AND cc.constraint_name = tc.constraint_name
+              WHERE tc.constraint_schema = DATABASE()
+                AND tc.table_name = 'interview_session_transitions'
+                AND tc.constraint_name = 'interview_session_transitions_chk_1'
+                AND LOWER(cc.check_clause) LIKE '%actor%'
+                AND UPPER(cc.check_clause) NOT LIKE '%ADMIN%'
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/018-drop-legacy-interview-transition-actor-check.sql
+            splitStatements: true
+            stripComments: true
