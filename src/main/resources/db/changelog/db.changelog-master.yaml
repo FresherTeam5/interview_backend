@@ -266,3 +266,21 @@ databaseChangeLog:
             path: db/changelog/sql/015-account-deletion-purge.sql
             splitStatements: true
             stripComments: true
+
+  - changeSet:
+      id: 016-admin-platform
+      author: my-interview-team
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/016-admin-platform.sql
+            splitStatements: true
+            stripComments: true
+
+  - changeSet:
+      id: 017-admin-operations-retention
+      author: my-interview-team
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/017-admin-operations-retention.sql
+            splitStatements: true
+            stripComments: true

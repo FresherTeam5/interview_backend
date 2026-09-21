@@ -84,6 +84,7 @@ public class SecurityConfig {
                 HttpHeaders.ACCEPT,
                 HttpHeaders.ORIGIN,
                 "X-Requested-With",
+                "X-Request-ID",
                 "Idempotency-Key"
         ));
         configuration.setAllowCredentials(true);

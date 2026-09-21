@@ -1,6 +1,7 @@
 package com.baseProject.myBaseProject.scheduler;
 
 import com.baseProject.myBaseProject.storage.StorageService;
+import com.baseProject.myBaseProject.service.BackgroundJobMonitor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,9 +20,14 @@ public class StorageDeletionJob {
     private final JdbcTemplate jdbc;
     private final StorageService storage;
     private final Clock clock;
+    private final BackgroundJobMonitor jobs;
 
     @Scheduled(cron = "${app.account.storage-deletion-cron}")
     public void deleteQueuedObjects() {
+        jobs.runScheduled("STORAGE_DELETION", this::deleteBatch);
+    }
+
+    private int deleteBatch() {
         Instant now = clock.instant();
         List<Task> tasks = jdbc.query("""
                 SELECT id, storage_key, attempts
@@ -32,6 +38,7 @@ public class StorageDeletionJob {
                 """, (result, row) -> new Task(result.getLong("id"),
                         result.getString("storage_key"), result.getInt("attempts")), now);
         tasks.forEach(this::delete);
+        return tasks.size();
     }
 
     private void delete(Task task) {

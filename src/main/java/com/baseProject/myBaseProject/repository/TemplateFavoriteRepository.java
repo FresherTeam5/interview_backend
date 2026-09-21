@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 public interface TemplateFavoriteRepository extends JpaRepository<TemplateFavorite, Long> {
     boolean existsByUserIdAndTemplateId(Long userId, Long templateId);
 
+    long countByTemplateId(Long templateId);
+
     @Modifying
     @Query(value = """
             INSERT IGNORE INTO user_template_favorites(user_id, template_id, created_at)

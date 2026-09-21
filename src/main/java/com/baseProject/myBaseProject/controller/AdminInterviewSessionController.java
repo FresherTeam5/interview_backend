@@ -4,6 +4,10 @@ import com.baseProject.myBaseProject.config.OpenApiConfig;
 import com.baseProject.myBaseProject.dto.admin.AdminPageResponse;
 import com.baseProject.myBaseProject.dto.admin.AdminSessionDetailResponse;
 import com.baseProject.myBaseProject.dto.admin.AdminSessionSummaryResponse;
+import com.baseProject.myBaseProject.dto.admin.AdminBulkSessionRequest;
+import com.baseProject.myBaseProject.dto.admin.AdminBulkSessionResponse;
+import com.baseProject.myBaseProject.dto.admin.AdminSessionActionRequest;
+import com.baseProject.myBaseProject.dto.admin.AdminSessionDiagnosticsResponse;
 import com.baseProject.myBaseProject.enums.InterviewSessionMode;
 import com.baseProject.myBaseProject.enums.InterviewSessionStatus;
 import com.baseProject.myBaseProject.security.CustomUserDetails;
@@ -14,6 +18,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -79,5 +85,55 @@ public class AdminInterviewSessionController {
             @PathVariable Long id) {
         return ResponseEntity.accepted()
                 .body(service.retryScoring(admin.getId(), id));
+    }
+
+    @GetMapping("/stale")
+    @Operation(summary = "Lấy các phiên bị treo quá ngưỡng vận hành")
+    public AdminPageResponse<AdminSessionSummaryResponse> stale(
+            @RequestParam InterviewSessionStatus status,
+            @RequestParam(defaultValue = "15") int staleMinutes,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return service.listStale(status, staleMinutes, page, size);
+    }
+
+    @GetMapping("/{id}/diagnostics")
+    @Operation(summary = "Lấy chẩn đoán đã loại bỏ thông tin nhạy cảm")
+    public AdminSessionDiagnosticsResponse diagnostics(@PathVariable Long id) {
+        return service.diagnostics(id);
+    }
+
+    @PostMapping("/{id}/force-close")
+    @Operation(summary = "Kết thúc phỏng vấn đang chạy và chuyển sang chấm điểm")
+    public ResponseEntity<AdminSessionDetailResponse> forceClose(
+            @CurrentUser CustomUserDetails admin,
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) AdminSessionActionRequest request) {
+        return ResponseEntity.accepted().body(service.forceClose(admin.getId(), id, request));
+    }
+
+    @PostMapping("/{id}/terminate")
+    @Operation(summary = "Dừng phiên lỗi hoặc bị treo mà không chấm điểm")
+    public AdminSessionDetailResponse terminate(
+            @CurrentUser CustomUserDetails admin,
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) AdminSessionActionRequest request) {
+        return service.terminate(admin.getId(), id, request);
+    }
+
+    @PostMapping("/bulk/preparation/retry")
+    @Operation(summary = "Retry preparation cho nhiều phiên, tối đa 25 phiên")
+    public AdminBulkSessionResponse bulkPreparation(
+            @CurrentUser CustomUserDetails admin,
+            @Valid @RequestBody AdminBulkSessionRequest request) {
+        return service.bulkRetryPreparation(admin.getId(), request);
+    }
+
+    @PostMapping("/bulk/scoring/retry")
+    @Operation(summary = "Retry scoring cho nhiều phiên, tối đa 25 phiên")
+    public AdminBulkSessionResponse bulkScoring(
+            @CurrentUser CustomUserDetails admin,
+            @Valid @RequestBody AdminBulkSessionRequest request) {
+        return service.bulkRetryScoring(admin.getId(), request);
     }
 }

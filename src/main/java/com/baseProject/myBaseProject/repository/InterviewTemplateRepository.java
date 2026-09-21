@@ -2,6 +2,7 @@ package com.baseProject.myBaseProject.repository;
 
 import com.baseProject.myBaseProject.entity.InterviewTemplate;
 import com.baseProject.myBaseProject.enums.JobDescriptionStatus;
+import com.baseProject.myBaseProject.enums.TemplateModerationStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -100,4 +101,51 @@ public interface InterviewTemplateRepository extends JpaRepository<InterviewTemp
     @Query("SELECT t FROM InterviewTemplate t WHERE t.id = :id AND t.owner.id = :ownerId")
     Optional<InterviewTemplate> findOwnedForUpdate(@Param("id") Long id,
                                                    @Param("ownerId") Long ownerId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT template FROM InterviewTemplate template WHERE template.id = :id")
+    Optional<InterviewTemplate> findByIdForUpdate(@Param("id") Long id);
+
+    @Query(value = """
+            SELECT template
+            FROM InterviewTemplate template
+            JOIN FETCH template.owner owner
+            WHERE (:keyword IS NULL
+                   OR LOWER(template.title) LIKE :keyword
+                   OR LOWER(template.jobTitle) LIKE :keyword
+                   OR LOWER(owner.fullName) LIKE :keyword
+                   OR LOWER(owner.email) LIKE :keyword)
+              AND (:ownerId IS NULL OR owner.id = :ownerId)
+              AND (:moderationStatus IS NULL OR template.moderationStatus = :moderationStatus)
+              AND (:published IS NULL
+                   OR (:published = TRUE AND template.publishedAt IS NOT NULL)
+                   OR (:published = FALSE AND template.publishedAt IS NULL))
+              AND (:featured IS NULL OR template.featured = :featured)
+              AND (:category IS NULL OR LOWER(template.category) = :category)
+            """,
+            countQuery = """
+                    SELECT COUNT(template)
+                    FROM InterviewTemplate template
+                    JOIN template.owner owner
+                    WHERE (:keyword IS NULL
+                           OR LOWER(template.title) LIKE :keyword
+                           OR LOWER(template.jobTitle) LIKE :keyword
+                           OR LOWER(owner.fullName) LIKE :keyword
+                           OR LOWER(owner.email) LIKE :keyword)
+                      AND (:ownerId IS NULL OR owner.id = :ownerId)
+                      AND (:moderationStatus IS NULL OR template.moderationStatus = :moderationStatus)
+                      AND (:published IS NULL
+                           OR (:published = TRUE AND template.publishedAt IS NOT NULL)
+                           OR (:published = FALSE AND template.publishedAt IS NULL))
+                      AND (:featured IS NULL OR template.featured = :featured)
+                      AND (:category IS NULL OR LOWER(template.category) = :category)
+                    """)
+    Page<InterviewTemplate> searchForAdmin(
+            @Param("keyword") String keyword,
+            @Param("ownerId") Long ownerId,
+            @Param("moderationStatus") TemplateModerationStatus moderationStatus,
+            @Param("published") Boolean published,
+            @Param("featured") Boolean featured,
+            @Param("category") String category,
+            Pageable pageable);
 }

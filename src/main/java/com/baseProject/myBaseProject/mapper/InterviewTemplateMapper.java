@@ -18,6 +18,9 @@ public class InterviewTemplateMapper {
                 template.getJobTitle(), template.getTargetSeniority(),
                 analysisJsonMapper.fromJson(template.getContentJson()), template.isConfirmed(),
                 template.getConfirmedAt(), template.isPublished(), template.getPublishedAt(),
+                template.getModerationStatus(), template.getSubmittedAt(), template.getReviewedAt(),
+                template.getModerationReason(), template.getCategory(), template.getTagsJson(),
+                template.isFeatured(), template.getDisplayOrder(),
                 template.getArchivedAt(), template.getVersion(), template.getCreatedAt(),
                 template.getUpdatedAt());
     }
@@ -26,7 +29,9 @@ public class InterviewTemplateMapper {
         return new InterviewTemplateSummaryResponse(
                 template.getId(), sourceId(template), template.getTitle(),
                 template.getJobTitle(), template.getTargetSeniority(), template.isConfirmed(),
-                template.isPublished(), template.getArchivedAt(), template.getUpdatedAt());
+                template.isPublished(), template.getModerationStatus(),
+                template.getModerationReason(), template.getCategory(), template.getTagsJson(),
+                template.isFeatured(), template.getArchivedAt(), template.getUpdatedAt());
     }
 
     private Long sourceId(InterviewTemplate template) {

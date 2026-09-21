@@ -13,6 +13,9 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import com.baseProject.myBaseProject.enums.TemplateModerationStatus;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -66,6 +69,35 @@ public class InterviewTemplate {
 
     @Column(name = "archived_at")
     private Instant archivedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moderation_status", nullable = false, length = 30)
+    private TemplateModerationStatus moderationStatus = TemplateModerationStatus.DRAFT;
+
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by")
+    private UserAccount reviewedBy;
+
+    @Column(name = "moderation_reason", length = 1000)
+    private String moderationReason;
+
+    @Column(length = 80)
+    private String category;
+
+    @Column(name = "tags_json", columnDefinition = "JSON")
+    private String tagsJson;
+
+    @Column(nullable = false)
+    private boolean featured;
+
+    @Column(name = "display_order", nullable = false)
+    private int displayOrder;
 
     @Version
     @Column(nullable = false)

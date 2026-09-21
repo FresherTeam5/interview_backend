@@ -302,4 +302,12 @@ public class InterviewSession {
         lastActivityAt = now;
         updatedAt = now;
     }
+
+    public void terminateByAdmin(Instant now) {
+        status = InterviewSessionStatus.CANCELLED;
+        endReason = InterviewEndReason.SYSTEM_TERMINATED;
+        endedAt = now;
+        lastActivityAt = now;
+        updatedAt = now;
+    }
 }

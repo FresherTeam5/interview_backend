@@ -38,6 +38,18 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void create(Long userId, UserNotificationType type, String title, String message,
                        String resourceType, Long resourceId) {
+        create(userId, type, title, message, resourceType, resourceId, true);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void createInAppOnly(Long userId, UserNotificationType type, String title,
+                                String message, String resourceType, Long resourceId) {
+        create(userId, type, title, message, resourceType, resourceId, false);
+    }
+
+    private void create(Long userId, UserNotificationType type, String title, String message,
+                        String resourceType, Long resourceId, boolean sendPreferenceEmail) {
         UserAccount user = users.findById(userId).orElse(null);
         if (user == null) {
             return;
@@ -55,7 +67,7 @@ public class NotificationServiceImpl implements NotificationService {
         AccountPreference preference = preferences.findById(userId).orElse(null);
         boolean emailEnabled = preference == null || preference.isEmailNotifications();
         boolean processingEnabled = preference == null || preference.isProcessingNotifications();
-        if (emailEnabled && processingEnabled) {
+        if (sendPreferenceEmail && emailEnabled && processingEnabled) {
             try {
                 mail.sendNotification(user.getEmail(), title, message);
             } catch (RuntimeException exception) {

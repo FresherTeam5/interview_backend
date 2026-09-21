@@ -66,6 +66,8 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         account = userAccountRepository.save(account);
 
+        account.setLastLoginAt(now);
+
         return issueTokens(new CustomUserDetails(account), account, metadata);
     }
 
@@ -79,8 +81,9 @@ public class AuthServiceImpl implements AuthService {
 
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-        // create a userAccout only id has value to create a foreign key
-        UserAccount accountRef = userAccountRepository.getReferenceById(userDetails.getId());
+        UserAccount accountRef = userAccountRepository.findByIdForUpdate(userDetails.getId())
+                .orElseThrow(() -> new DomainException(ErrorCode.USER_NOT_FOUND));
+        accountRef.setLastLoginAt(clock.instant());
 
         return issueTokens(userDetails, accountRef, metadata);
     }
@@ -96,10 +99,11 @@ public class AuthServiceImpl implements AuthService {
                         .orElseGet(() -> createFromGoogle(googleUser)));
 
 
-        if (!account.isEnabled()) {
+        if (!account.canAuthenticateAt(clock.instant())) {
             throw new DisabledException(Message.ACCOUNT_DISABLED);
         }
 
+        account.setLastLoginAt(clock.instant());
         account = userAccountRepository.save(account);
         return issueTokens(new CustomUserDetails(account), account, metadata);
     }

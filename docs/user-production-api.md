@@ -144,6 +144,11 @@ Mỗi user chỉ có một feedback trên một session.
 | `POST` | `/api/support-tickets` | Tạo ticket |
 | `GET` | `/api/support-tickets?page=0&size=20` | Danh sách ticket của user |
 | `GET` | `/api/support-tickets/{id}` | Chi tiết ticket của user |
+| `GET` | `/api/support-tickets/{id}/messages` | Danh sách trao đổi công khai |
+| `POST` | `/api/support-tickets/{id}/messages` | Gửi thêm thông tin; ticket RESOLVED tự mở lại |
+
+Ticket `CLOSED` không nhận message mới. Ghi chú nội bộ của admin không xuất hiện
+trong API user.
 
 Body tạo ticket:
 

@@ -54,9 +54,23 @@ public class AccountDeletionRequest {
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private int attempts = 0;
+
+    @Column(name = "last_attempt_at")
+    private Instant lastAttemptAt;
+
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Column(name = "last_error", length = 1000)
+    private String lastError;
+
     public void cancel(Instant now) {
         status = AccountDeletionStatus.CANCELLED;
         cancelledAt = now;
+        nextAttemptAt = null;
     }
 
     public void reschedule(Instant requested, Instant scheduled) {
@@ -64,5 +78,9 @@ public class AccountDeletionRequest {
         requestedAt = requested;
         scheduledAt = scheduled;
         cancelledAt = null;
+        attempts = 0;
+        lastAttemptAt = null;
+        nextAttemptAt = scheduled;
+        lastError = null;
     }
 }

@@ -69,7 +69,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         }
 
         UserAccount user = stored.getUser();
-        if (!user.isEnabled()) {
+        if (!user.canAuthenticateAt(now)) {
             refreshTokenRepository.revokeFamily(stored.getFamilyId(), now);
             throw new DomainException(ErrorCode.INVALID_REFRESH_TOKEN);
         }

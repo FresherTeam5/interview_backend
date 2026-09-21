@@ -15,14 +15,19 @@ stateDiagram-v2
     READY --> Draft: response có templateId
     Draft --> Draft: PUT template
     Draft --> Confirmed: POST /confirm
-    Confirmed --> Published: ADMIN /publish
-    Published --> Confirmed: ADMIN /unpublish
+    Confirmed --> PendingReview: POST /submit-review
+    PendingReview --> Approved: ADMIN approve
+    PendingReview --> Draft: ADMIN reject
+    Approved --> Published: ADMIN publish
+    Published --> Approved: ADMIN unpublish
+    Approved --> Hidden: ADMIN hide
+    Published --> Hidden: ADMIN hide
     Draft --> Archived: /archive
     Confirmed --> Archived: /archive
     Published --> Archived: /archive + auto unpublish
 ```
 
-Tất cả endpoint yêu cầu Bearer token. JD thuộc riêng owner. Template detail đọc được nếu là owner hoặc template đang public; mọi mutation template yêu cầu owner. Publish/unpublish còn yêu cầu role `ADMIN`.
+Tất cả endpoint yêu cầu Bearer token. JD thuộc riêng owner. Template detail đọc được nếu là owner hoặc template đang public; mutation nội dung yêu cầu owner. Kiểm duyệt và quản lý public toàn hệ thống dùng `/api/admin/templates`.
 
 ## TypeScript contract
 
@@ -410,9 +415,27 @@ Content-Type: application/json
 
 Confirm đặt `confirmedAt`, tăng version và khóa update nội dung. Template confirmed, chưa archive có thể dùng tạo session nếu thuộc user; published template có thể được user khác dùng.
 
-Gọi confirm lại là idempotent: trả template hiện tại kể cả `expectedVersion` đã cũ. Không có API unconfirm hoặc clone; muốn sửa nội dung sau confirm phải gửi lại JD để tạo draft mới.
+Gọi confirm lại là idempotent: trả template hiện tại kể cả `expectedVersion` đã cũ.
+Không có API unconfirm trực tiếp. Admin reject sẽ mở khóa template để owner sửa;
+owner cũng có thể gọi `POST /api/interview-templates/{id}/clone` để tạo draft riêng.
 
-## 8. Publish, unpublish và archive
+## 8. Kiểm duyệt trước khi công khai
+
+Sau khi confirm, owner gửi template vào hàng đợi kiểm duyệt bằng:
+
+```http
+POST /api/interview-templates/{id}/submit-review
+Content-Type: application/json
+
+{"expectedVersion":2}
+```
+
+Response template có thêm `moderationStatus`, `submittedAt`, `reviewedAt`,
+`moderationReason`, `category`, `tagsJson`, `featured` và `displayOrder`. Template
+bị reject được mở khóa để sửa, confirm và submit lại. Việc review/publish toàn hệ
+thống sử dụng nhóm `/api/admin/templates` mô tả trong `docs/admin-api.md`.
+
+## 9. Publish, unpublish và archive
 
 Các request cùng body:
 
@@ -422,13 +445,17 @@ Các request cùng body:
 
 | Endpoint | Điều kiện | Hành vi |
 |---|---|---|
-| `POST /{id}/publish` | Owner role `ADMIN`, active, confirmed | Đặt `publishedAt`; gọi lại idempotent |
+| `POST /{id}/publish` | Owner role `ADMIN`, active, confirmed, đã approved nếu review bắt buộc | Đặt `publishedAt`; gọi lại idempotent |
 | `POST /{id}/unpublish` | Owner role `ADMIN`, active | Xóa `publishedAt`; gọi lại idempotent |
 | `POST /{id}/archive` | Owner, chưa archive | Đặt `archivedAt` và tự unpublish; gọi lại idempotent |
 
+Admin quản lý template của mọi owner qua `/api/admin/templates/{id}/publish` và
+`/unpublish`; endpoint cũ dưới `/api/interview-templates` chỉ còn phục vụ template
+do chính admin sở hữu.
+
 Với thao tác chưa được áp dụng, `expectedVersion` phải khớp. Khi state đã đúng, backend trả state hiện tại trước khi check version. Archive hiện không có API hoàn tác.
 
-## 9. Xóa JD và tác động lên Template
+## 10. Xóa JD và tác động lên Template
 
 ```http
 DELETE /api/job-descriptions/{id}
@@ -436,4 +463,3 @@ Authorization: Bearer <accessToken>
 ```
 
 Response `204 No Content`. Không xóa được khi pipeline đang chạy (`409 JD_PROCESSING_IN_PROGRESS`). Đây là soft delete JD khỏi list; template đã tạo **không bị xóa/archive** và vẫn có thể quản lý hoặc dùng theo state của template. Presigned URL PDF vẫn có thể lấy bằng ID đã biết. UI nên coi xóa JD là ẩn source item, không phải xóa template.
-

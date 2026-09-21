@@ -106,6 +106,14 @@ public class InterviewTemplateController {
         return service.confirm(user.getId(), id, request.expectedVersion());
     }
 
+    @PostMapping("/{id}/submit-review")
+    @Operation(summary = "Gửi mẫu đã xác nhận vào hàng đợi kiểm duyệt")
+    public InterviewTemplateResponse submitReview(
+            @CurrentUser CustomUserDetails user, @PathVariable Long id,
+            @Valid @RequestBody TemplateVersionRequest request) {
+        return service.submitForReview(user.getId(), id, request.expectedVersion());
+    }
+
     @PostMapping("/{id}/publish")
     @IsAdmin
     @Operation(

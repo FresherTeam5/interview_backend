@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.time.Instant;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
@@ -24,7 +25,7 @@ public class CustomUserDetails implements UserDetails {
         this.email = account.getEmail();
         this.password = account.getPasswordHash();
         this.role = account.getRole();
-        this.enabled = account.isEnabled();
+        this.enabled = account.canAuthenticateAt(Instant.now());
     }
 
     @Override

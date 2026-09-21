@@ -7,7 +7,9 @@ import com.baseProject.myBaseProject.dto.template.UpdateInterviewTemplateRequest
 import com.baseProject.myBaseProject.dto.template.CloneInterviewTemplateRequest;
 import com.baseProject.myBaseProject.dto.template.TemplateFavoriteResponse;
 import com.baseProject.myBaseProject.entity.InterviewTemplate;
+import com.baseProject.myBaseProject.enums.AdminAuditAction;
 import com.baseProject.myBaseProject.enums.UserRole;
+import com.baseProject.myBaseProject.enums.TemplateModerationStatus;
 import com.baseProject.myBaseProject.exception.DomainException;
 import com.baseProject.myBaseProject.exception.ErrorCode;
 import com.baseProject.myBaseProject.jobdescription.mapper.JobAnalysisJsonMapper;
@@ -18,6 +20,9 @@ import com.baseProject.myBaseProject.repository.TemplateFavoriteRepository;
 import com.baseProject.myBaseProject.repository.TemplateViewRepository;
 import com.baseProject.myBaseProject.repository.UserAccountRepository;
 import com.baseProject.myBaseProject.service.InterviewTemplateService;
+import com.baseProject.myBaseProject.service.AdminAuditService;
+import com.baseProject.myBaseProject.service.SystemSettingService;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +34,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +50,12 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
     private final JobAnalysisJsonMapper analysisJsonMapper;
     private final JobAnalysisValidator validator;
     private final Clock clock;
+
+    @Autowired(required = false)
+    private SystemSettingService systemSettings;
+
+    @Autowired(required = false)
+    private AdminAuditService audit;
 
     @Override
     @Transactional
@@ -77,7 +89,7 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
             case "mine" -> templates.searchMine(userId, keywordFilter, seniorityFilter,
                     languageFilter, technologyFilter, pageable);
             case "public" -> templates.searchPublic(keywordFilter, seniorityFilter,
-                    languageFilter, technologyFilter, pageable);
+                    languageFilter, technologyFilter, publicPageRequest(page, size));
             case "favorites" -> favorites.searchFavorites(userId, keywordFilter, seniorityFilter,
                     languageFilter, technologyFilter, pageable);
             case "recent" -> views.searchRecent(userId, keywordFilter, seniorityFilter,
@@ -158,9 +170,42 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
         template.setJobTitle(content.jobTitle());
         template.setTargetSeniority(content.targetSeniority());
         template.setContentJson(analysisJsonMapper.toJson(content));
+        if (template.getModerationStatus() == TemplateModerationStatus.REJECTED) {
+            template.setModerationStatus(TemplateModerationStatus.DRAFT);
+            template.setSubmittedAt(null);
+            template.setModerationReason(null);
+            template.setReviewedAt(null);
+            template.setReviewedBy(null);
+        }
         touch(template);
         templates.flush();
 
+        return mapper.toResponse(template);
+    }
+
+    @Override
+    @Transactional
+    public InterviewTemplateResponse submitForReview(
+            Long userId, Long id, long expectedVersion) {
+        InterviewTemplate template = ownedForUpdate(userId, id);
+        requireActive(template);
+        requireConfirmed(template);
+        if (template.getModerationStatus() == TemplateModerationStatus.PENDING_REVIEW) {
+            return mapper.toResponse(template);
+        }
+        if (template.getModerationStatus() == TemplateModerationStatus.APPROVED
+                || template.getModerationStatus() == TemplateModerationStatus.HIDDEN) {
+            throw new DomainException(ErrorCode.TEMPLATE_REVIEW_NOT_ALLOWED);
+        }
+        requireVersion(template, expectedVersion);
+        Instant now = clock.instant();
+        template.setModerationStatus(TemplateModerationStatus.PENDING_REVIEW);
+        template.setSubmittedAt(now);
+        template.setReviewedAt(null);
+        template.setReviewedBy(null);
+        template.setModerationReason(null);
+        template.setUpdatedAt(now);
+        templates.flush();
         return mapper.toResponse(template);
     }
 
@@ -193,6 +238,12 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
 
         requireActive(template);
         requireConfirmed(template);
+        boolean reviewRequired = systemSettings == null || systemSettings.booleanValue(
+                SystemSettingServiceImpl.TEMPLATE_REVIEW_REQUIRED, true);
+        if (reviewRequired
+                && template.getModerationStatus() != TemplateModerationStatus.APPROVED) {
+            throw new DomainException(ErrorCode.TEMPLATE_APPROVAL_REQUIRED);
+        }
         if (template.isPublished()) {
             return mapper.toResponse(template);
         }
@@ -202,6 +253,7 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
         template.setPublishedAt(now);
         template.setUpdatedAt(now);
         templates.flush();
+        recordAudit(userId, AdminAuditAction.TEMPLATE_PUBLISHED, id, true);
 
         return mapper.toResponse(template);
     }
@@ -221,6 +273,7 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
         template.setPublishedAt(null);
         touch(template);
         templates.flush();
+        recordAudit(userId, AdminAuditAction.TEMPLATE_UNPUBLISHED, id, false);
 
         return mapper.toResponse(template);
     }
@@ -237,6 +290,7 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
 
         template.setArchivedAt(clock.instant());
         template.setPublishedAt(null);
+        template.setFeatured(false);
         touch(template);
         templates.flush();
 
@@ -247,6 +301,14 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
 
     private InterviewTemplate ownedForUpdate(Long userId, Long id) {
         return templates.findOwnedForUpdate(id, userId).orElseThrow(this::notFound);
+    }
+
+    private void recordAudit(
+            Long actorId, AdminAuditAction action, Long templateId, boolean published) {
+        if (audit != null) {
+            audit.record(actorId, action, "INTERVIEW_TEMPLATE", templateId, null,
+                    Map.of("published", published));
+        }
     }
 
     private InterviewTemplate accessible(Long userId, Long id) {
@@ -333,6 +395,17 @@ public class InterviewTemplateServiceImpl implements InterviewTemplateService {
             throw new DomainException(ErrorCode.VALIDATION_FAILED);
         }
         return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+    }
+
+    private PageRequest publicPageRequest(int page, int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new DomainException(ErrorCode.VALIDATION_FAILED);
+        }
+        return PageRequest.of(page, size, Sort.by(
+                Sort.Order.desc("featured"),
+                Sort.Order.asc("displayOrder"),
+                Sort.Order.desc("publishedAt"),
+                Sort.Order.desc("id")));
     }
 
     private <T> TemplatePageResponse<T> page(Page<T> page) {

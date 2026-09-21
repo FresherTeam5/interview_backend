@@ -56,6 +56,11 @@ springdoc:
     operations-sorter: method
 
 app:
+  admin:
+    announcement-cron: ${ADMIN_ANNOUNCEMENT_CRON:0 * * * * *}
+    job-history-cleanup-cron: ${ADMIN_JOB_HISTORY_CLEANUP_CRON:0 30 3 * * *}
+    job-recovery-ms: ${ADMIN_JOB_RECOVERY_MS:3600000}
+
   account:
     email-verification-ttl-minutes: ${EMAIL_VERIFICATION_TTL_MINUTES:1440}
     password-reset-ttl-minutes: ${PASSWORD_RESET_TTL_MINUTES:30}

@@ -2,8 +2,10 @@ package com.baseProject.myBaseProject.controller;
 
 import com.baseProject.myBaseProject.config.OpenApiConfig;
 import com.baseProject.myBaseProject.dto.support.CreateSupportTicketRequest;
+import com.baseProject.myBaseProject.dto.support.CreateSupportMessageRequest;
 import com.baseProject.myBaseProject.dto.support.SupportTicketPageResponse;
 import com.baseProject.myBaseProject.dto.support.SupportTicketResponse;
+import com.baseProject.myBaseProject.dto.support.SupportTicketMessageResponse;
 import com.baseProject.myBaseProject.security.CustomUserDetails;
 import com.baseProject.myBaseProject.security.authorization.CurrentUser;
 import com.baseProject.myBaseProject.security.authorization.IsUser;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/support-tickets")
@@ -52,5 +56,21 @@ public class SupportTicketController {
     public SupportTicketResponse get(
             @CurrentUser CustomUserDetails user, @PathVariable Long id) {
         return service.get(user.getId(), id);
+    }
+
+    @GetMapping("/{id}/messages")
+    @Operation(summary = "Lấy trao đổi công khai của yêu cầu hỗ trợ")
+    public List<SupportTicketMessageResponse> messages(
+            @CurrentUser CustomUserDetails user, @PathVariable Long id) {
+        return service.messages(user.getId(), id);
+    }
+
+    @PostMapping("/{id}/messages")
+    @Operation(summary = "Gửi thêm thông tin cho yêu cầu hỗ trợ")
+    public SupportTicketMessageResponse addMessage(
+            @CurrentUser CustomUserDetails user,
+            @PathVariable Long id,
+            @Valid @RequestBody CreateSupportMessageRequest request) {
+        return service.addMessage(user.getId(), id, request);
     }
 }

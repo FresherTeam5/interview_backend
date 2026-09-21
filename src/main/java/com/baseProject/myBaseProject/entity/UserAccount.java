@@ -59,6 +59,18 @@ public class UserAccount {
     @Column(name = "deletion_requested_at")
     private Instant deletionRequestedAt;
 
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
+
+    @Column(name = "suspended_at")
+    private Instant suspendedAt;
+
+    @Column(name = "suspended_until")
+    private Instant suspendedUntil;
+
+    @Column(name = "restriction_reason", length = 500)
+    private String restrictionReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -67,5 +79,14 @@ public class UserAccount {
 
     public boolean isEmailVerified() {
         return emailVerifiedAt != null;
+    }
+
+    public boolean isSuspendedAt(Instant now) {
+        return enabled && suspendedAt != null
+                && (suspendedUntil == null || suspendedUntil.isAfter(now));
+    }
+
+    public boolean canAuthenticateAt(Instant now) {
+        return enabled && !isSuspendedAt(now);
     }
 }

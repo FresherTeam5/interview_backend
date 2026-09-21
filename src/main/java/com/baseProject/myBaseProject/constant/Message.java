@@ -8,6 +8,10 @@ public final class Message {
     public static final String TEMPLATE_INSUFFICIENT_JD = "Please provide a job description with responsibilities or job requirements";
     public static final String TEMPLATE_ALREADY_CONFIRMED = "Confirmed interview templates cannot be edited";
     public static final String TEMPLATE_CONFIRM_REQUIRED = "Confirm the interview template before using or publishing it";
+    public static final String TEMPLATE_REVIEW_NOT_ALLOWED =
+            "Interview template cannot enter the requested moderation state";
+    public static final String TEMPLATE_APPROVAL_REQUIRED =
+            "Interview template must be approved before it can be published";
 
     // Interview sessions
     public static final String INTERVIEW_SESSION_NOT_FOUND = "Interview session not found";
@@ -32,6 +36,8 @@ public final class Message {
     public static final String INTERVIEW_TURN_NOT_RETRYABLE = "Only a failed candidate turn can be retried";
     public static final String INTERVIEW_SESSION_NOT_CANCELLABLE =
             "Only an interview that has not started can be cancelled";
+    public static final String INTERVIEW_ADMIN_OPERATION_INVALID =
+            "Administrator operation is not allowed for the current interview status";
     public static final String PROFILE_CONFIRM_REQUIRED = "Confirm the candidate profile before creating an interview session";
 
     // Speech
@@ -135,4 +141,15 @@ public final class Message {
     public static final String SUPPORT_TICKET_NOT_FOUND = "Support ticket not found";
     public static final String SUPPORT_TICKET_CONTEXT_INVALID =
             "Support ticket session or turn does not belong to the current user";
+    public static final String SUPPORT_TICKET_TRANSITION_INVALID =
+            "Support ticket status transition is not allowed";
+    public static final String SUPPORT_TICKET_CLOSED =
+            "Closed support tickets do not accept new public messages";
+    public static final String SUPPORT_ASSIGNEE_INVALID =
+            "Support ticket can only be assigned to an active administrator";
+    public static final String ANNOUNCEMENT_NOT_FOUND = "Announcement not found";
+    public static final String ANNOUNCEMENT_STATE_INVALID =
+            "Announcement operation is not allowed in its current state";
+    public static final String ANNOUNCEMENT_VERSION_CONFLICT =
+            "Announcement changed; reload it and try again";
 }

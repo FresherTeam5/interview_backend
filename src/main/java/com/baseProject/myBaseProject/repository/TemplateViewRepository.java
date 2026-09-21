@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 
 public interface TemplateViewRepository extends JpaRepository<TemplateView, Long> {
+    @Query("SELECT COALESCE(SUM(view.viewCount), 0) FROM TemplateView view WHERE view.template.id = :templateId")
+    long totalViews(@Param("templateId") Long templateId);
     @Modifying
     @Query(value = """
             INSERT INTO user_template_views(user_id, template_id, view_count, last_viewed_at)

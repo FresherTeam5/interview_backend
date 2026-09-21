@@ -8,6 +8,9 @@ public interface NotificationService {
     void create(Long userId, UserNotificationType type, String title, String message,
                 String resourceType, Long resourceId);
 
+    void createInAppOnly(Long userId, UserNotificationType type, String title, String message,
+                         String resourceType, Long resourceId);
+
     NotificationPageResponse list(Long userId, boolean unreadOnly, int page, int size);
 
     long unreadCount(Long userId);

@@ -32,6 +32,8 @@ public interface InterviewTemplateService {
 
     InterviewTemplateResponse confirm(Long userId, Long id, long expectedVersion);
 
+    InterviewTemplateResponse submitForReview(Long userId, Long id, long expectedVersion);
+
     InterviewTemplateResponse publish(Long userId, Long id, long expectedVersion);
 
     InterviewTemplateResponse unpublish(Long userId, Long id, long expectedVersion);

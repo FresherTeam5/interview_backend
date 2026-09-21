@@ -2,6 +2,7 @@ package com.baseProject.myBaseProject.entity;
 
 import com.baseProject.myBaseProject.enums.SupportTicketStatus;
 import com.baseProject.myBaseProject.enums.SupportTicketType;
+import com.baseProject.myBaseProject.enums.SupportTicketPriority;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,7 +28,9 @@ import java.time.Instant;
                 columnNames = "reference_code"),
         indexes = {
                 @Index(name = "idx_support_ticket_user_created", columnList = "user_id, created_at"),
-                @Index(name = "idx_support_ticket_status_created", columnList = "status, created_at")
+                @Index(name = "idx_support_ticket_status_created", columnList = "status, created_at"),
+                @Index(name = "idx_support_ticket_assignee_status",
+                        columnList = "assigned_admin_id, status, updated_at")
         })
 @Getter
 @Setter
@@ -60,6 +63,14 @@ public class SupportTicket {
     @Column(nullable = false, length = 20)
     private SupportTicketStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private SupportTicketPriority priority;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_admin_id")
+    private UserAccount assignedAdmin;
+
     @Column(nullable = false, length = 200)
     private String subject;
 
@@ -68,6 +79,15 @@ public class SupportTicket {
 
     @Column(name = "context_json", columnDefinition = "JSON", updatable = false)
     private String contextJson;
+
+    @Column(name = "resolution_summary", length = 2000)
+    private String resolutionSummary;
+
+    @Column(name = "resolved_at")
+    private Instant resolvedAt;
+
+    @Column(name = "closed_at")
+    private Instant closedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

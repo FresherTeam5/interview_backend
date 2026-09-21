@@ -51,6 +51,8 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
 
     long countByUserIdAndStatus(Long userId, InterviewSessionStatus status);
 
+    long countByTemplateId(Long templateId);
+
     long countByUserIdAndCreatedAtBetween(Long userId, Instant createdFrom, Instant createdTo);
 
     long countByUserIdAndStatusAndCreatedAtBetween(
@@ -136,4 +138,22 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
     @EntityGraph(attributePaths = "user")
     @Query("SELECT session FROM InterviewSession session WHERE session.id = :id")
     Optional<InterviewSession> findByIdForAdmin(@Param("id") Long id);
+
+    @Query(value = """
+            SELECT session
+            FROM InterviewSession session
+            JOIN FETCH session.user user
+            WHERE session.status = :sessionStatus
+              AND session.updatedAt <= :staleBefore
+            """,
+            countQuery = """
+                    SELECT COUNT(session)
+                    FROM InterviewSession session
+                    WHERE session.status = :sessionStatus
+                      AND session.updatedAt <= :staleBefore
+                    """)
+    Page<InterviewSession> findStaleForAdmin(
+            @Param("sessionStatus") InterviewSessionStatus status,
+            @Param("staleBefore") Instant staleBefore,
+            Pageable pageable);
 }

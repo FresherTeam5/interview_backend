@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import com.baseProject.myBaseProject.enums.UserNotificationType;
 
 public interface UserNotificationRepository extends JpaRepository<UserNotification, Long> {
     Page<UserNotification> findByUserId(Long userId, Pageable pageable);
@@ -39,4 +40,7 @@ public interface UserNotificationRepository extends JpaRepository<UserNotificati
     int markAllRead(@Param("userId") Long userId, @Param("readAt") Instant readAt);
 
     boolean existsByIdAndUserId(Long id, Long userId);
+
+    boolean existsByUserIdAndTypeAndResourceTypeAndResourceId(
+            Long userId, UserNotificationType type, String resourceType, Long resourceId);
 }

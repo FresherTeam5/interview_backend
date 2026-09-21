@@ -21,6 +21,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
 
     boolean existsByUserIdAndFamilyId(Long userId, String familyId);
 
+    long countByUserIdAndRevokedAtIsNullAndExpiresAtAfter(Long userId, Instant now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM RefreshToken t WHERE t.tokenHash = :tokenHash")
     Optional<RefreshToken> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
